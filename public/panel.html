@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<base target="_blank">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  html, body { margin: 0; background: transparent; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #root { padding: 14px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+  // Generated code runs in an opaque-origin sandbox; this bridge is its only way out.
+  const root = document.getElementById('root');
+  const post = msg => parent.postMessage({ genui: true, ...msg }, '*');
+  window.agent = { send: payload => post({ type: 'event', payload }) };
+  addEventListener('error', e => post({ type: 'error', message: String(e.message) }));
+
+  addEventListener('message', e => {
+    if (e.source !== parent) return;
+    root.innerHTML = e.data.html.replace(/^\s*```(?:html)?\s*/i, '');
+    if (!e.data.final) return;
+    // innerHTML never executes scripts; re-create them once the fragment is complete.
+    for (const old of root.querySelectorAll('script')) {
+      const s = document.createElement('script');
+      s.textContent = old.textContent;
+      old.replaceWith(s);
+    }
+  });
+
+  new ResizeObserver(() => post({ type: 'height', h: root.offsetHeight })).observe(root);
+  post({ type: 'ready' });
+</script>
+</body>
+</html>

@@ -1,0 +1,186 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>genui</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+  :root { --line: #e2e8f0; --muted: #64748b; --ink: #1e293b; --accent: #4f46e5; --bg: #f8fafc; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--bg); }
+  header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 12px; padding: 10px 20px; background: #fff; border-bottom: 1px solid var(--line); }
+  .brand { font-weight: 700; letter-spacing: -.01em; }
+  .mark { width: 22px; height: 22px; margin-right: -4px; }
+  .activity { display: none; align-items: center; gap: 8px; padding: 0 12px; color: var(--muted); font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .activity.on { display: flex; }
+  .activity .dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: pulse 1s infinite; }
+  .activity .status { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  @keyframes pulse { 50% { opacity: .3; } }
+
+  main { max-width: 1280px; margin: 0 auto; padding: 20px 20px 220px; display: grid; grid-template-columns: 1fr 1fr; grid-auto-flow: dense; gap: 16px; align-items: start; }
+  .empty { grid-column: span 2; text-align: center; color: var(--muted); padding: 120px 0; }
+  .empty b { display: block; color: var(--ink); font-size: 18px; margin-bottom: 6px; }
+
+  .panel { background: #fff; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; animation: in .18s ease-out; }
+  .panel.full { grid-column: span 2; }
+  .panel > .bar { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--line); background: #fcfcfd; }
+  .panel > .bar .title { font-weight: 600; flex: 1; }
+  .panel > .bar .meta { color: var(--muted); font: 11px ui-monospace, Menlo, monospace; }
+  .panel > .bar .err { color: #e11d48; font-size: 11px; display: none; }
+  .panel.has-error > .bar .err { display: inline; }
+  .panel iframe { display: block; width: 100%; height: 120px; border: 0; }
+  .skeleton { padding: 14px; display: grid; gap: 8px; }
+  .skeleton i { height: 12px; border-radius: 6px; background: linear-gradient(90deg, #f1f5f9, #e2e8f0, #f1f5f9); background-size: 200% 100%; animation: shimmer 1s infinite linear; }
+  .skeleton i:nth-child(2) { width: 70%; } .skeleton i:nth-child(3) { width: 45%; }
+  .panel.painted .skeleton { display: none; }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+  @keyframes in { from { opacity: 0; transform: translateY(4px); } }
+
+  footer { position: fixed; bottom: 0; left: 0; right: 0; padding: 12px 20px 16px; background: linear-gradient(transparent, var(--bg) 24px); }
+  .dock { max-width: 860px; margin: 0 auto; display: grid; gap: 8px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; box-shadow: 0 4px 16px rgb(15 23 42 / .06); }
+  .card.approve { border-color: #f59e0b; }
+  .card .kicker { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 4px; }
+  .card pre { margin: 6px 0 10px; max-height: 160px; overflow: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; font-size: 12px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  button { font: inherit; border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .prompt { display: flex; gap: 8px; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 8px; box-shadow: 0 4px 16px rgb(15 23 42 / .06); }
+  .prompt textarea { flex: 1; border: 0; outline: 0; resize: none; font: inherit; padding: 6px 8px; height: 40px; }
+  .other { flex: 1; min-width: 160px; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font: inherit; }
+</style>
+</head>
+<body>
+<header><img class="mark" src="/logo.svg" alt=""><span class="brand">genui</span></header>
+<main id="canvas"><div class="empty" id="empty"><b>Ask anything.</b>Answers arrive as interface, not text.</div></main>
+<footer>
+  <div class="dock">
+    <div id="cards" class="dock"></div>
+    <div class="activity" id="activity" aria-live="polite"><span class="dot"></span><span class="status" id="status"></span></div>
+    <form class="prompt" id="form">
+      <textarea id="input" placeholder="What do you need?" autofocus></textarea>
+      <button class="primary">Send</button>
+    </form>
+  </div>
+</footer>
+<script>
+const $ = id => document.getElementById(id);
+const panels = new Map(); // id -> { el, frame, seq, html, ready, final, queued }
+const api = body => fetch('/api', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+
+function openPanel({ id, title, width, seq }) {
+  $('empty')?.remove();
+  let p = panels.get(id);
+  const section = p?.el ?? el('section');
+  section.className = `panel ${width}`;
+  section.replaceChildren();
+  const bar = el('div', 'bar');
+  bar.append(el('span', 'title', title), el('span', 'err', 'script error'), el('span', 'meta', 'rendering…'));
+  const skeleton = el('div', 'skeleton');
+  skeleton.append(el('i'), el('i'), el('i'));
+  const frame = el('iframe');
+  frame.sandbox = 'allow-scripts allow-popups'; // no allow-same-origin: generated code cannot reach the harness
+  frame.src = '/panel.html';
+  section.append(bar, skeleton, frame);
+  if (!p) $('canvas').append(section);
+  panels.set(id, { el: section, frame, seq, html: '', ready: false, final: false, queued: false });
+}
+
+function flush(p) {
+  if (!p.ready || p.queued) return;
+  p.queued = true;
+  requestAnimationFrame(() => { // at most one DOM swap per frame while tokens stream in
+    p.queued = false;
+    p.frame.contentWindow.postMessage({ html: p.html, final: p.final }, '*');
+  });
+}
+
+function handle(ev) {
+  const p = panels.get(ev.id);
+  switch (ev.t) {
+    case 'panel': return openPanel(ev);
+    case 'chunk':
+      if (!p || p.seq !== ev.seq) return;
+      p.html += ev.d;
+      p.el.classList.add('painted');
+      return flush(p);
+    case 'done':
+      if (!p || p.seq !== ev.seq) return;
+      Object.assign(p, { html: ev.html, final: true });
+      p.el.classList.add('painted');
+      p.el.querySelector('.meta').textContent = ev.ms != null ? `first paint ${((ev.ttft ?? ev.ms) / 1000).toFixed(1)}s · done ${(ev.ms / 1000).toFixed(1)}s` : '';
+      return flush(p);
+    case 'remove':
+      p?.el.remove();
+      return panels.delete(ev.id);
+    case 'status': activity.text = ev.text; return renderActivity();
+    case 'busy': activity.busy = ev.on; return renderActivity();
+    case 'ask': return askCard(ev);
+    case 'approve': return approveCard(ev);
+    case 'resolved': return document.querySelector(`[data-card="${ev.id}"]`)?.remove();
+  }
+}
+
+const activity = { busy: false, text: '' };
+function renderActivity() {
+  $('status').textContent = activity.text || 'Thinking…';
+  $('activity').classList.toggle('on', activity.busy || Boolean(activity.text));
+}
+
+function askCard({ askId, question, options }) {
+  const card = el('div', 'card');
+  card.dataset.card = askId;
+  const row = el('div', 'row');
+  const answer = value => { card.remove(); api({ t: 'answer', askId, value }); };
+  for (const o of options) { const b = el('button', '', o); b.onclick = () => answer(o); row.append(b); }
+  const other = el('input', 'other');
+  other.placeholder = 'Other…';
+  other.onkeydown = e => { if (e.key === 'Enter' && other.value.trim()) answer(other.value.trim()); };
+  row.append(other);
+  card.append(el('div', 'kicker', 'Question'), el('div', '', question), row);
+  $('cards').append(card);
+}
+
+function approveCard({ reqId, tool, input }) {
+  const card = el('div', 'card approve');
+  card.dataset.card = reqId;
+  const row = el('div', 'row');
+  const decide = allow => { card.remove(); api({ t: 'approval', reqId, allow }); };
+  const yes = el('button', 'primary', 'Allow'); yes.onclick = () => decide(true);
+  const no = el('button', '', 'Deny'); no.onclick = () => decide(false);
+  row.append(yes, no);
+  card.append(el('div', 'kicker', 'Permission · drawn by the harness, not the AI'), el('b', '', tool), el('pre', '', JSON.stringify(input, null, 2)), row);
+  $('cards').append(card);
+}
+
+addEventListener('message', e => {
+  if (!e.data?.genui) return;
+  const [id, p] = [...panels].find(([, p]) => p.frame.contentWindow === e.source) ?? [];
+  if (!p) return;
+  if (e.data.type === 'ready') { p.ready = true; flush(p); }
+  if (e.data.type === 'height') p.frame.style.height = `${Math.max(60, e.data.h)}px`;
+  if (e.data.type === 'error') { p.el.classList.add('has-error'); p.el.querySelector('.err').title = e.data.message; }
+  if (e.data.type === 'event') api({ t: 'event', panel: id, payload: e.data.payload });
+});
+
+new EventSource('/events').onmessage = e => handle(JSON.parse(e.data));
+
+$('form').onsubmit = e => {
+  e.preventDefault();
+  const text = $('input').value.trim();
+  if (!text) return;
+  $('input').value = '';
+  api({ t: 'prompt', text });
+};
+$('input').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('form').requestSubmit(); } };
+</script>
+</body>
+</html>

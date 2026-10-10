@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 116 48" width="145" height="60" fill="none">
+  <style>.ink{stroke:#1e293b}.word{fill:#1e293b}.pop{fill:#4f46e5}@media (prefers-color-scheme:dark){.ink{stroke:#e6edf3}.word{fill:#e6edf3}.pop{fill:#818cf8}}</style>
+  <g transform="translate(0 8)">
+    <rect x="3.5" y="3.5" width="10" height="10" rx="3" class="ink" stroke="#1e293b" stroke-width="2.5"/>
+    <rect x="18.5" y="3.5" width="10" height="10" rx="3" class="ink" stroke="#1e293b" stroke-width="2.5"/>
+    <rect x="3.5" y="18.5" width="10" height="10" rx="3" class="ink" stroke="#1e293b" stroke-width="2.5"/>
+    <rect x="17" y="17" width="13" height="13" rx="3.5" class="pop" fill="#4f46e5"/>
+  </g>
+  <text class="word" x="42" y="33" fill="#1e293b" font-family="ui-sans-serif, -apple-system, 'Segoe UI', sans-serif" font-size="26" font-weight="700" letter-spacing="-0.5">genui</text>
+</svg>

@@ -1,0 +1,17 @@
+{
+  "name": "genui",
+  "version": "0.1.0",
+  "description": "A Claude Agent SDK harness whose only output is generated UI: Opus plans, a warm Haiku pool renders.",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test"
+  },
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.296",
+    "zod": "^4.6.5"
+  },
+  "type": "module",
+  "private": false
+}
