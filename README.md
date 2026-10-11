@@ -4,7 +4,7 @@
 >
 > — summarized from Leviathan et al., [*Generative UI: LLMs are Effective UI Generators*](https://arxiv.org/pdf/2604.09577), Google Research ([blog](https://research.google/blog/generative-ui-a-rich-custom-visual-interactive-user-experience-for-any-prompt/), [examples](https://generativeui.github.io))
 
-**genui is Claude Code without the chat window: a coding agent whose only output is interfaces it generates on the fly.** Ask about your code and, instead of a wall of markdown, you get a custom panel built for that answer: an architecture diagram, a diff to approve, a table of test results, buttons for next steps. You can click and comment on any part of it. It runs locally in your browser on your existing Claude Code login; run `genui` in a project to start.
+**genui is a coding agent harness whose only output is interfaces it generates on the fly.** Ask about your code and, instead of a wall of markdown, you get a custom panel built for that answer: an architecture diagram, a diff to approve, a table of test results, buttons for next steps. You can click and comment on any part of it. It runs locally in your browser on your existing Claude Code login; run `genui` in a project to start.
 
 It stays fast through orchestration: a strong model (Opus or Fable) does the thinking and writes a short brief, and pre-warmed fast models (Haiku) stream each brief into a panel. Panels start appearing in **~0.5–3 seconds instead of 1–2 minutes**. [Why this works →](#why-genui)
 
