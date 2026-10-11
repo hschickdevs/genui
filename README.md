@@ -121,4 +121,6 @@ A **session** is one Claude Code session (same id, same title) plus its canvas. 
 
 ## License
 
-[PolyForm Noncommercial 1.0.0](LICENSE.md): free for personal, research, hobby and other noncommercial use. Commercial use needs a separate license; open an issue to ask.
+[PolyForm Noncommercial 1.0.0](LICENSE.md): free for personal, research, hobby and other noncommercial use. For a commercial license, contact me:
+
+[![Telegram](https://img.shields.io/badge/Telegram-26A5E4?logo=telegram&logoColor=white)](https://t.me/hschickdevs) [![Email](https://img.shields.io/badge/Email-EA4335?logo=gmail&logoColor=white)](mailto:hschickdevs@gmail.com)
