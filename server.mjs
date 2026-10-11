@@ -2,12 +2,14 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { homedir } from 'node:os';
 import { execFile } from 'node:child_process';
 import { query, tool, createSdkMcpServer, getSessionInfo, renameSession } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import { PLANNER_APPEND } from './prompts.mjs';
 import { RendererPool, stripFences } from './renderer.mjs';
-import { addInput, archiveSession, loadSessions, newSession, resolveDir, saveSession } from './sessions.mjs';
+import { HOME, addInput, archiveSession, loadSessions, newSession, resolveDir, saveSession } from './sessions.mjs';
+import { prepareAttachments } from './attachments.mjs';
 import { OPTIONS, loadSettings, saveSettings, validate } from './settings.mjs';
 
 const PORT = Number(process.env.PORT || 4317);
@@ -297,16 +299,18 @@ function createSession(rec) {
         cwd: rec.cwd,
         ...(rec.started ? { resume: rec.id } : { sessionId: rec.id }), // genui session id === Claude session id
         systemPrompt: { type: 'preset', preset: 'claude_code', append: PLANNER_APPEND },
-        settingSources: ['project'],
+        // User settings bring the user's MCP servers (user scope, plugins, claude.ai connectors), as in their own
+        // Claude Code. Their hooks stay off: genui's Stop hook (an SDK callback) still runs, verified.
+        settingSources: ['user', 'project', 'local'],
+        settings: { disableAllHooks: true },
         mcpServers: { ui: uiServer() },
-        strictMcpConfig: true,
         allowedTools: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch', 'TodoWrite', 'mcp__ui__ui_show', 'mcp__ui__ui_ask', 'mcp__ui__ui_remove'],
         disallowedTools: ['AskUserQuestion'],
         canUseTool,
         hooks: { Stop: [{ hooks: [stopHook] }] },
         includePartialMessages: true, // stream activity into the Send button tip
         thinking: { type: 'adaptive', display: 'summarized' },
-        env: { ...process.env, ENABLE_CLAUDEAI_MCP_SERVERS: 'false' },
+        env: process.env,
       },
     }));
     (async () => {
@@ -364,6 +368,11 @@ function createSession(rec) {
     renderedThisTurn = false;
     steps = [];
     setBusy(true);
+    if (rec.canvasCleared) { // told with the next message rather than spending a turn on it
+      const note = '[The user cleared the canvas: no panels are showing now.]';
+      content = typeof content === 'string' ? `${note}\n${content}` : [{ type: 'text', text: note }, ...content];
+      delete rec.canvasCleared;
+    }
     plannerInput.push({ type: 'user', message: { role: 'user', content }, parent_tool_use_id: null });
   }
 
@@ -395,10 +404,13 @@ function createSession(rec) {
 
   async function handle(msg) {
     const panelTitle = panels.get(msg.panel)?.title;
-    if (msg.t === 'prompt' && msg.text?.trim()) {
-      if (!rec.title) rec.title = msg.text.trim().split('\n')[0].slice(0, 60); // until Claude names it
-      logInput({ kind: 'prompt', text: msg.text.trim() });
-      toPlanner(msg.text);
+    if (msg.t === 'prompt') {
+      const text = typeof msg.text === 'string' ? msg.text.trim() : '';
+      const { blocks, names } = await prepareAttachments(msg.attachments, path.join(HOME, 'uploads', rec.id)); // throws: the route replies 400
+      if (!text && !names.length) return;
+      if (!rec.title) rec.title = (text.split('\n')[0] || names[0]).slice(0, 60); // until Claude names it
+      logInput({ kind: 'prompt', text, files: names });
+      toPlanner(blocks.length ? [...(text ? [{ type: 'text', text }] : []), ...blocks] : text);
     }
     if (msg.t === 'event') {
       // label: text of the clicked element, from the sandboxed panel. Only ever rendered as text.
@@ -415,6 +427,12 @@ function createSession(rec) {
     }
     if (msg.t === 'approval') approvals.get(msg.reqId)?.resolve(Boolean(msg.allow));
     if (msg.t === 'stop') await stop();
+    if (msg.t === 'clearCanvas' && panels.size) {
+      for (const id of panels.keys()) send({ t: 'remove', id }); // in-flight renders see they're superseded and stop
+      panels.clear();
+      rec.canvasCleared = true; // persisted, so a restart before the next message still tells the planner
+      save();
+    }
     // The session's own cwd, never a client-supplied path. explorer.exe exits 1 even on success: log, don't throw.
     if (msg.t === 'openFolder') execFile(FILE_MANAGER, [rec.cwd], e => e && console.error(`[${rec.id}] open folder:`, e.message));
   }
@@ -428,11 +446,19 @@ function createSession(rec) {
     await planner.applyFlagSettings({ effortLevel }).catch(e => console.error(`[${rec.id}] effort:`, e.message));
   }
 
+  // Live status from this session's planner; otherwise the last status any planner reported.
+  async function mcpStatus() {
+    const list = planner && (await planner.mcpServerStatus().catch(() => null));
+    if (list) mcpCache = list.filter(x => x.name !== 'ui').map(({ name, status }) => ({ name, status }));
+    return { servers: mcpCache, live: Boolean(list) };
+  }
+
   return {
     rec,
     clients,
     replay,
     handle,
+    mcpStatus,
     close,
     rename,
     applySettings,
@@ -449,6 +475,38 @@ function createSession(rec) {
       step: busy ? status : '',
     }),
   };
+}
+
+// Browsers never reveal absolute paths, so the local server shows the OS file/folder dialog.
+// Resolves to the chosen paths, or [] if the user cancels. No AppleScript `activate`: it adds ~2s before the dialog shows.
+let picking = false;
+let mcpCache = null; // last MCP status any planner reported, for the chat bar's ＋ menu
+async function pickPaths({ folder, multiple = false, prompt, start }) {
+  if (picking) throw new Error('A file dialog is already open');
+  const [cmd, args] = process.platform === 'darwin'
+    ? ['osascript', [
+        'on run argv',
+        `set picked to choose ${folder ? 'folder' : 'file'} with prompt "${prompt}" default location (POSIX file (item 1 of argv))${multiple ? ' with multiple selections allowed' : ''}`,
+        'if class of picked is not list then set picked to {picked}',
+        'set out to ""',
+        'repeat with f in picked',
+        'set out to out & POSIX path of f & linefeed',
+        'end repeat',
+        'return out',
+        'end run',
+      ].flatMap(line => ['-e', line]).concat(start)]
+    : ['zenity', ['--file-selection', ...(folder ? ['--directory'] : []), ...(multiple ? ['--multiple', '--separator=\n'] : []), `--title=${prompt}`, `--filename=${start}/`]];
+  picking = true;
+  try {
+    return await new Promise((resolve, reject) => execFile(cmd, args, (e, out, err) => {
+      if (!e) return resolve(out.split('\n').map(x => x.trim()).filter(Boolean));
+      if (e.code === 'ENOENT') return reject(new Error(`No file dialog available (${cmd} not found)`));
+      if (process.platform === 'darwin' ? /-128/.test(err) : e.code === 1) return resolve([]); // cancelled
+      reject(new Error(err.trim() || e.message));
+    }));
+  } finally {
+    picking = false;
+  }
 }
 
 async function addSession(cwd) {
@@ -490,9 +548,13 @@ const FILES = {
   '/favicon.ico': ['favicon.ico', 'image/x-icon'], // browsers request this path on their own
 };
 
+const MAX_BODY = 64 * 1024 * 1024; // room for 10 attachments, base64-encoded
 async function readJson(req) {
   let body = '';
-  for await (const c of req) body += c;
+  for await (const c of req) {
+    body += c;
+    if (body.length > MAX_BODY) throw Object.assign(new Error('Request too large'), { status: 413 });
+  }
   return JSON.parse(body);
 }
 
@@ -525,7 +587,12 @@ http
     if (req.method === 'POST' && url.pathname === '/api') {
       // This endpoint approves tool calls on this machine: reject cross-site requests.
       if (!ORIGINS.includes(req.headers.origin)) return res.writeHead(403).end();
-      const msg = await readJson(req);
+      let msg;
+      try {
+        msg = await readJson(req);
+      } catch (e) {
+        return reply(res, e.status ?? 400, { error: e.status ? e.message : 'Bad JSON' }); // an escaped throw here would crash the server
+      }
       if (msg.t === 'settings') {
         try {
           settings = { ...settings, ...validate(msg.value) };
@@ -549,9 +616,14 @@ http
         for (const c of allClients) sse(c, { t: 'goto', ...target }); // an open tab switches instead of a new one opening
         return reply(res, 200, { ...target, switched: allClients.size > 0 });
       }
-      if (msg.t === 'newSession') {
+      if (msg.t === 'newSession' || msg.t === 'pickFolder') {
         try {
-          const rec = await addSession(msg.cwd);
+          const near = sessions.get(msg.session)?.rec.cwd;
+          const cwd = msg.t === 'pickFolder'
+            ? (await pickPaths({ folder: true, prompt: 'Choose a folder for the new session', start: near ? path.dirname(near) : homedir() }))[0]
+            : msg.cwd;
+          if (!cwd) return reply(res, 200, {}); // dialog cancelled
+          const rec = await addSession(cwd);
           return reply(res, 200, { id: rec.id });
         } catch (e) {
           return reply(res, 400, { error: e.message });
@@ -576,7 +648,20 @@ http
       }
       const p = sessions.get(msg.session);
       if (!p) return reply(res, 400, { error: 'Unknown session' });
-      await p.handle(msg);
+      if (msg.t === 'mcpStatus') return reply(res, 200, await p.mcpStatus());
+      if (msg.t === 'pickPaths') { // ＋ menu: attach files or a folder by path, nothing uploaded
+        try {
+          const folder = Boolean(msg.folder);
+          return reply(res, 200, { paths: await pickPaths({ folder, multiple: !folder, prompt: folder ? 'Attach a folder' : 'Attach files', start: p.rec.cwd }) });
+        } catch (e) {
+          return reply(res, 400, { error: e.message });
+        }
+      }
+      try {
+        await p.handle(msg);
+      } catch (e) {
+        return reply(res, 400, { error: e.message }); // e.g. a rejected attachment
+      }
       return res.writeHead(204).end();
     }
     res.writeHead(404).end();

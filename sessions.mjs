@@ -33,8 +33,9 @@ export function newSession(cwd) {
 
 // What the user sent the planner, for the chat bar's history. Capped: it rides along in every save.
 export const MAX_INPUTS = 50;
-export function addInput(rec, { kind, text, panel, on }) {
+export function addInput(rec, { kind, text, panel, on, files }) {
   const entry = { kind, text: String(text ?? '').slice(0, 4000), at: Date.now() };
+  if (files?.length) entry.files = files.slice(0, 20).map(f => String(f).slice(0, 200));
   if (panel) entry.panel = String(panel).slice(0, 200);
   if (on) entry.on = String(on).slice(0, 300);
   rec.inputs = [...(rec.inputs ?? []), entry].slice(-MAX_INPUTS); // sessions saved before this feature have none

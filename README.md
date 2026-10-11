@@ -62,7 +62,9 @@ flowchart LR
 | **Panels** | Sandboxed iframes (`allow-scripts`, no same-origin). `agent.send(payload)` is their only way back to the planner. |
 | **Comments** | Press **C** (or the speech-bubble icon in the header), click any element in a panel and type. The planner gets the element's visible text with your comment, so you don't have to describe what you mean. Esc exits. |
 | **Chat bar** | While the planner works, a line above the input shows what it's working on: your last prompt, click, comment or answer. The clock button lists everything sent in this session; click an entry to reuse it, or press ↑ in an empty input to recall earlier prompts. |
-| **Approvals** | Drawn by the harness, never by a model, so the agent requesting an action can't design its own consent screen. |
+| **Approvals** | Drawn by the harness, never by a model, so the agent requesting an action can't design its own consent screen. MCP actions show as **MCP · server · tool**. |
+| **Attachments** | Paste or drop images and files into the chat bar, or use **＋ → Attach files… / Attach folder…** (a native picker; nothing is uploaded, the planner gets the path). Images go to the planner inline; pasted or dropped files are saved under `~/.genui/uploads/`. |
+| **MCP servers** | The planner gets the same MCP servers as your Claude Code: user and project config, plugins, and claude.ai connectors. **＋** lists them with live status. Your hooks are not loaded into the planner. |
 
 ## Install
 
@@ -109,7 +111,7 @@ A **session** is one Claude Code session (same id, same title) plus its canvas. 
 | Show or hide the sidebar | ⌘B / Ctrl+B |
 | Jump to a session | ⌘K / Ctrl+K, type, ↑↓, Enter |
 | New session in the current folder | **＋ New session** (or **+** on a folder heading) |
-| New session elsewhere | **New session in another folder…** with an absolute path, or `genui` in that folder |
+| New session elsewhere | The folder icon next to **New session** opens a folder picker, or run `genui` in that folder |
 | Rename | Double-click the title in the header |
 | Archive | **×** on an idle session in the sidebar |
 

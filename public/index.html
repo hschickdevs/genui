@@ -63,24 +63,20 @@
   .none { margin: 16px 10px; color: var(--muted); font-size: 13px; }
   .sb-newrow { position: relative; display: flex; align-items: center; gap: 2px; }
   .sb-newrow .sb-new { flex: 1; }
-  .sb-more { width: 28px; height: 28px; }
-  .sb-more svg { width: 16px; height: 16px; }
-  .sb-menu { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 6; display: grid; gap: 2px; padding: 4px; }
-  .mi { width: 100%; border: 0; border-radius: 8px; padding: 7px 10px; background: none; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .mi:hover { background: var(--hover); }
-  .mi .muted { color: var(--muted); }
-  .sb-menu form { padding: 2px 4px 4px; }
-  .sb-menu input { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; outline: 0; font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
-  .sb-menu input:focus { border-color: var(--accent); }
-  .sb-menu .err { display: block; padding: 4px 2px 0; color: #e11d48; font-size: 12px; }
+  .sb-pick { width: 28px; height: 28px; }
+  .sb-pick svg { width: 16px; height: 16px; }
+  .sb-newrow .tt { z-index: 6; } /* above the session rows, which are positioned */
+  .sb-newrow:has(.sb-pick:hover, .sb-pick:focus-visible) .tt { opacity: 1; }
+  .sb-err { padding: 0 10px; color: #e11d48; font-size: 12px; }
+  .sb-err:empty { display: none; }
   .sb-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 4px 6px 0; color: var(--muted); font-size: 11px; }
   .crumb { min-width: 0; display: flex; align-items: baseline; gap: 10px; }
   .s-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: text; }
   .s-meta { color: var(--muted); font-size: 12px; white-space: nowrap; }
   .rename { width: min(420px, 50vw); border: 1px solid var(--accent); border-radius: 6px; padding: 2px 6px; font: inherit; font-weight: 600; outline: 0; }
   .comment-host { margin-left: auto; }
-  .settings, .comment-host, .folder-host { position: relative; display: flex; }
-  :is(.comment-host, .folder-host):has(.tool:hover, .tool:focus-visible) .tt { opacity: 1; }
+  .settings, .comment-host, .clear-host, .folder-host { position: relative; display: flex; }
+  :is(.comment-host, .clear-host, .folder-host):has(.tool:hover, .tool:focus-visible) .tt { opacity: 1; }
   .tt .sub { display: block; margin-top: 2px; color: #94a3b8; font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; }
   .tt kbd { margin-left: 4px; border: 0; background: #1e293b; color: #cbd5e1; }
   #commentBtn[aria-pressed="true"] + .tt .off, #commentBtn[aria-pressed="false"] + .tt .on { display: none; }
@@ -103,6 +99,8 @@
   dialog.confirm p { margin: 0; color: var(--muted); }
   dialog.confirm .row { justify-content: flex-end; }
   button.danger { background: #e11d48; border-color: #e11d48; color: #fff; }
+  dialog.confirm kbd { margin-left: 6px; }
+  button.danger kbd { border-color: transparent; background: rgb(255 255 255 / .2); color: #fff; }
   .keys-body { display: grid; gap: 14px; padding: 14px 18px 18px; }
   .keys-body h3 { margin: 0 0 4px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
   .keys-body dl { display: grid; grid-template-columns: 150px 1fr; gap: 6px 12px; margin: 0; }
@@ -160,6 +158,36 @@
   .ctx b { flex: none; font-weight: 600; color: #475569; }
   .ctx .txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ctx .where { flex: none; }
+  /* ＋ menu (attach + MCP status), attachment chips, drop overlay */
+  .prompt { flex-wrap: wrap; }
+  .chips { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 2px 4px; }
+  .chips:empty, .attach-err:empty { display: none; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; max-width: 220px; height: 32px; padding: 0 4px 0 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); font-size: 12px; }
+  .chip img { width: 22px; height: 22px; border-radius: 4px; object-fit: cover; }
+  .chip svg { flex: none; width: 16px; height: 16px; color: var(--muted); }
+  .chip .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chip .cx { flex: none; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 5px; background: none; color: var(--muted); line-height: 1; }
+  .chip .cx:hover { color: var(--ink); background: #e2e8f0; }
+  .attach-err { flex-basis: 100%; padding: 0 4px 4px; color: #e11d48; font-size: 12px; }
+  .plus-wrap { position: relative; display: flex; align-items: center; }
+  .plus-wrap .tt { top: auto; right: auto; left: 0; bottom: calc(100% + 10px); }
+  .plus-wrap:has(.tool:hover, .tool:focus-visible):not(.open) .tt { opacity: 1; }
+  .pmenu { position: absolute; left: 0; bottom: calc(100% + 14px); z-index: 5; width: min(320px, 80vw); max-height: 60vh; overflow: auto; padding: 6px; }
+  .pmenu .mi { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 8px; border: 0; border-radius: 8px; background: none; text-align: left; }
+  .pmenu .mi:hover { background: var(--hover); }
+  .pmenu .mi svg { width: 16px; height: 16px; color: var(--muted); }
+  .pmenu hr { margin: 6px 0; border: 0; border-top: 1px solid var(--line); }
+  .pmenu .kicker { display: flex; justify-content: space-between; padding: 4px 8px; margin: 0; }
+  .mcp { display: flex; align-items: center; gap: 8px; padding: 4px 8px; font-size: 13px; }
+  .mcp .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mcp .st { flex: none; color: var(--muted); font-size: 11px; }
+  .mcp .dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: #cbd5e1; }
+  .mcp.connected .dot { background: #10b981; }
+  .mcp.needs-auth .dot { background: var(--amber); }
+  .mcp.failed .dot { background: #e11d48; }
+  .mcp.pending .dot { animation: pulse 1s infinite; }
+  .pmenu .note { padding: 4px 8px 6px; color: var(--muted); font-size: 12px; }
+  .drop { position: fixed; inset: 12px; z-index: 50; display: grid; place-items: center; border: 2px dashed var(--accent); border-radius: 16px; background: rgb(79 70 229 / .06); color: var(--accent); font-weight: 600; backdrop-filter: blur(1px); }
   .hist-wrap { position: relative; display: flex; align-items: center; }
   .hist-wrap .tt { top: auto; bottom: calc(100% + 10px); }
   .hist-wrap:has(.tool:hover, .tool:focus-visible):not(.open) .tt { opacity: 1; }
@@ -209,20 +237,14 @@
     <input id="jump" type="search" placeholder="Jump to session…" aria-label="Jump to session" autocomplete="off" spellcheck="false" aria-keyshortcuts="Meta+K Control+K">
     <kbd>⌘K</kbd>
   </div>
-  <div class="sb-newrow" id="newRow">
+  <div class="sb-newrow">
     <button class="sb-new" id="newBtn"><span aria-hidden="true">＋</span> New session</button>
-    <button class="tool sb-more" id="newMore" aria-label="More ways to start a session" aria-expanded="false" aria-controls="newMenu">
-      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+    <button class="tool sb-pick" id="pickBtn" aria-label="New session in another folder">
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 10v6"/><path d="M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
     </button>
-    <div class="card sb-menu" id="newMenu" hidden>
-      <button class="mi" id="newHere">In <span id="newHereName"></span> <span class="muted">(current)</span></button>
-      <button class="mi" id="otherBtn">In another folder…</button>
-      <form id="folderForm" hidden>
-        <input id="folderPath" placeholder="/absolute/path/to/folder" spellcheck="false" autocomplete="off" aria-label="Folder path">
-        <span class="err" id="folderErr" role="alert"></span>
-      </form>
-    </div>
+    <span class="tt" aria-hidden="true">New session in another folder…</span>
   </div>
+  <span class="sb-err" id="folderErr" role="alert"></span>
   <nav class="sb-list" id="list" aria-label="Sessions"></nav>
   <div class="sb-foot"><kbd>⌘B</kbd> sidebar <kbd>⌘K</kbd> jump <kbd>C</kbd> comment</div>
 </aside>
@@ -234,6 +256,12 @@
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
     </button>
     <span class="tt" aria-hidden="true"><span class="off">Comment <kbd>C</kbd></span><span class="on">Exit comments <kbd>Esc</kbd></span></span>
+  </div>
+  <div class="clear-host">
+    <button class="tool" id="clearBtn" aria-label="Clear canvas">
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 21H8a2 2 0 0 1-1.42-.587l-3.994-3.999a2 2 0 0 1 0-2.828l10-10a2 2 0 0 1 2.829 0l5.999 6a2 2 0 0 1 0 2.828L12.834 21"/><path d="m5.082 11.09 8.828 8.828"/></svg>
+    </button>
+    <span class="tt" aria-hidden="true">Clear canvas</span>
   </div>
   <div class="folder-host">
     <button class="tool" id="folderBtn" aria-label="Open working folder">
@@ -248,7 +276,7 @@
     <span class="tt" aria-hidden="true">Settings</span>
     <div class="card pop" id="settingsPop" role="dialog" aria-label="Settings" hidden>
       <label class="field">Permissions<select id="set-permissionMode"></select></label>
-      <p class="warn" id="permWarn">Runs any command or file edit without asking.</p>
+      <p class="warn" id="permWarn">Runs any command, file edit or MCP action (sending messages, writing to databases) without asking.</p>
       <div class="field">Planning model<div class="pair"><select id="set-plannerModel" aria-label="Planning model"></select><select id="set-plannerEffort" aria-label="Planning effort" title="Effort"></select></div></div>
       <div class="field">Rendering model<div class="pair"><select id="set-renderModel" aria-label="Rendering model"></select><select id="set-renderEffort" aria-label="Rendering effort" title="Effort"></select></div></div>
       <div class="field-row"><span>Keybinds</span><button type="button" id="keysBtn" aria-haspopup="dialog">View</button></div>
@@ -262,6 +290,20 @@
     <div id="cards" class="dock"></div>
     <div class="ctx" id="ctx"><span class="dot"></span><b id="ctxKind"></b><span class="txt" id="ctxText"></span><span class="where" id="ctxWhere"></span></div>
     <form class="prompt" id="form">
+      <div class="chips" id="chips" aria-label="Attachments"></div>
+      <span class="attach-err" id="attachErr" role="alert"></span>
+      <div class="plus-wrap" id="plusWrap">
+        <button type="button" class="tool" id="plusBtn" aria-label="Attach files, or see MCP servers" aria-expanded="false" aria-controls="pmenu">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+        </button>
+        <span class="tt" aria-hidden="true">Attach · MCP servers</span>
+        <div class="card pmenu" id="pmenu" role="dialog" aria-label="Attach and MCP servers" hidden>
+          <button type="button" class="mi" id="attachFiles"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"/></svg>Attach files…</button>
+          <button type="button" class="mi" id="attachFolder"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>Attach folder…</button>
+          <hr>
+          <div id="mcpList"></div>
+        </div>
+      </div>
       <textarea id="input" placeholder="What do you need?" autofocus></textarea>
       <div class="hist-wrap" id="histWrap">
         <button type="button" class="tool" id="histBtn" aria-label="History" aria-expanded="false" aria-controls="hist">
@@ -286,11 +328,12 @@
   </div>
 </footer>
 </div>
-<dialog class="confirm" id="rmDlg" aria-labelledby="rmTitle">
-  <form method="dialog" id="rmForm">
-    <h2 id="rmTitle">Remove session?</h2>
-    <p id="rmText"></p>
-    <div class="row"><button value="cancel" autofocus>Cancel</button><button class="danger" value="remove">Remove</button></div>
+<div class="drop" id="drop" hidden>Drop to attach</div>
+<dialog class="confirm" id="confirmDlg" aria-labelledby="confirmTitle" aria-describedby="confirmText">
+  <form method="dialog" id="confirmForm">
+    <h2 id="confirmTitle"></h2>
+    <p id="confirmText"></p>
+    <div class="row"><button value="cancel" autofocus>Cancel <kbd>Esc</kbd></button><button class="danger" value="ok" id="confirmOk"><span id="confirmOkLabel"></span> <kbd>↵</kbd></button></div>
   </form>
 </dialog>
 <dialog class="keys" id="keys" aria-labelledby="keysTitle">
@@ -360,7 +403,9 @@ function handle(ev) {
       return flush(p);
     case 'remove':
       p?.el.remove();
-      return panels.delete(ev.id);
+      panels.delete(ev.id);
+      if (!panels.size) $('canvas').replaceChildren(empty); // back to "Ask anything."
+      return;
     case 'status': activity.text = ev.text; activity.steps = ev.steps ?? []; return renderActivity();
     case 'busy': activity.busy = ev.on; return renderActivity();
     case 'ask': return askCard(ev);
@@ -443,16 +488,32 @@ function sessionRow(x) {
   return row;
 }
 
-function confirmRemove(x) {
-  $('rmText').textContent = `“${x.title || 'New session'}” leaves the sidebar. Its history is kept in ~/.genui/sessions/archive.`;
+// Shared confirm dialog: Enter confirms, Esc cancels (native <dialog>), and the buttons show both keys.
+function confirmAction({ title, text, ok, run }) {
+  $('confirmTitle').textContent = title;
+  $('confirmText').textContent = text;
+  $('confirmOkLabel').textContent = ok;
   // Braces matter: an on* handler returning false would cancel the submit and keep the dialog open.
-  $('rmForm').onsubmit = e => {
-    if (e.submitter?.value !== 'remove') return;
-    // Archiving ends this session's event stream: move off it first instead of waiting ~3s for a reconnect.
-    if (x.id === active) switchTo(sessions.filter(s => s.id !== x.id).sort((a, b) => b.lastActive - a.lastActive)[0].id);
-    api({ t: 'archiveSession', id: x.id });
-  };
-  $('rmDlg').showModal();
+  $('confirmForm').onsubmit = e => { if (e.submitter?.value === 'ok') run(); };
+  $('confirmDlg').showModal();
+}
+$('confirmDlg').addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || e.isComposing) return;
+  e.preventDefault(); // Enter on the focused Cancel button would otherwise cancel
+  $('confirmForm').requestSubmit($('confirmOk'));
+});
+
+function confirmRemove(x) {
+  confirmAction({
+    title: 'Remove session?',
+    text: `“${x.title || 'New session'}” leaves the sidebar. Its history is kept in ~/.genui/sessions/archive.`,
+    ok: 'Remove',
+    run: () => {
+      // Archiving ends this session's event stream: move off it first instead of waiting ~3s for a reconnect.
+      if (x.id === active) switchTo(sessions.filter(s => s.id !== x.id).sort((a, b) => b.lastActive - a.lastActive)[0].id);
+      api({ t: 'archiveSession', id: x.id });
+    },
+  });
 }
 
 function renderHeader() {
@@ -496,6 +557,8 @@ function switchTo(id) {
   inputs = [];
   recall = -1;
   setHistOpen(false);
+  setPlusOpen(false);
+  clearAttachments();
   panels.clear();
   $('canvas').replaceChildren(empty);
   $('cards').replaceChildren();
@@ -559,37 +622,19 @@ $('jump').onkeydown = e => {
   }
 };
 
-$('otherBtn').onclick = () => {
-  $('otherBtn').hidden = true;
-  $('folderForm').hidden = false;
-  $('folderPath').focus();
-};
-const closeFolder = () => {
-  $('folderForm').hidden = true;
-  $('otherBtn').hidden = false;
-  $('folderPath').value = '';
+// The server opens the OS folder dialog (a browser can't hand over an absolute path) and creates the session.
+$('pickBtn').onclick = async () => {
   $('folderErr').textContent = '';
+  $('pickBtn').disabled = true;
+  const r = await api({ t: 'pickFolder' });
+  $('pickBtn').disabled = false;
+  const body = await r.json().catch(() => ({ error: `Request failed (${r.status})` }));
+  if (!r.ok) {
+    $('folderErr').textContent = body.error;
+    return setTimeout(() => { $('folderErr').textContent = ''; }, 5000);
+  }
+  if (body.id) openSession(body.id); // no id: dialog cancelled
 };
-$('folderPath').onkeydown = e => { if (e.key === 'Escape') { e.stopPropagation(); closeFolder(); } };
-$('folderPath').oninput = () => { $('folderErr').textContent = ''; };
-$('folderForm').onsubmit = async e => {
-  e.preventDefault();
-  const cwd = $('folderPath').value.trim();
-  if (!cwd) return;
-  const error = await newSession(cwd);
-  if (error) return ($('folderErr').textContent = error);
-  setNewMenu(false);
-};
-
-function setNewMenu(open) {
-  $('newMenu').hidden = !open;
-  $('newMore').setAttribute('aria-expanded', open);
-  if (open) $('newHereName').textContent = folderName(current()?.cwd ?? '');
-  else closeFolder();
-}
-$('newMore').onclick = () => setNewMenu($('newMenu').hidden);
-$('newHere').onclick = () => { setNewMenu(false); newSession(current()?.cwd); };
-addEventListener('click', e => { if (!$('newRow').contains(e.target)) setNewMenu(false); });
 
 // Rename in place: double-click the title, Enter saves, Esc cancels.
 $('sTitle').ondblclick = () => {
@@ -676,7 +721,8 @@ addEventListener('click', e => { if (!$('settings').contains(e.target)) setSetti
 let inputs = []; // oldest first: [{ kind, text, panel?, on?, at }]
 let recall = -1; // ↑/↓ position among typed prompts, 0 = newest; -1 = not browsing
 const KIND = { prompt: 'You', click: 'Clicked', comment: 'Comment', answer: 'Answered' };
-const inputText = x => `${x.kind === 'comment' && x.on ? `on “${x.on}”: ` : ''}${x.text}`;
+const attachText = x => (x.files?.length ? `${x.files.length} attachment${x.files.length > 1 ? 's' : ''}${x.text ? ' · ' : ''}` : '');
+const inputText = x => `${attachText(x)}${x.kind === 'comment' && x.on ? `on “${x.on}”: ` : ''}${x.text}`;
 
 function renderCtx() {
   const x = inputs.at(-1);
@@ -754,6 +800,9 @@ function askCard({ askId, question, options }) {
   $('cards').append(card);
 }
 
+// mcp__<server>__<tool> -> "MCP · <server> · <tool>", so an MCP action reads clearly on the consent card.
+const toolLabel = t => (t.startsWith('mcp__') ? `MCP · ${t.slice(5).split('__').join(' · ')}` : t);
+
 function approveCard({ reqId, tool, input }) {
   const card = el('div', 'card approve');
   card.dataset.card = reqId;
@@ -762,8 +811,155 @@ function approveCard({ reqId, tool, input }) {
   const yes = el('button', 'primary', 'Allow'); yes.onclick = () => decide(true);
   const no = el('button', '', 'Deny'); no.onclick = () => decide(false);
   row.append(yes, no);
-  card.append(el('div', 'kicker', 'Permission · drawn by the harness, not the AI'), el('b', '', tool), el('pre', '', JSON.stringify(input, null, 2)), row);
+  card.append(el('div', 'kicker', 'Permission · drawn by the harness, not the AI'), el('b', '', toolLabel(tool)), el('pre', '', JSON.stringify(input, null, 2)), row);
   $('cards').append(card);
+}
+
+// ---------- attachments (paste, drop, or ＋ menu) + MCP status ----------
+let attachments = []; // [{ type: 'image' | 'file' | 'path', name, mediaType?, data?, path?, dir?, thumb? }]
+const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']; // what the API takes inline
+const MB = 1024 * 1024;
+const FILE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>';
+const FOLDER_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>';
+let attachErrTimer = null;
+
+function attachError(text) {
+  $('attachErr').textContent = text;
+  clearTimeout(attachErrTimer);
+  attachErrTimer = setTimeout(() => { $('attachErr').textContent = ''; }, 5000);
+}
+
+const readBase64 = file => new Promise((resolve, reject) => {
+  const r = new FileReader();
+  r.onload = () => resolve(String(r.result).split(',')[1] ?? '');
+  r.onerror = () => reject(r.error);
+  r.readAsDataURL(file);
+});
+
+async function addFiles(files) {
+  for (const f of files) {
+    if (attachments.length >= 10) { attachError('At most 10 attachments'); break; }
+    const image = IMAGE_TYPES.includes(f.type);
+    const max = image ? 5 * MB : 25 * MB; // the server enforces the same limits
+    if (f.size > max) { attachError(`${f.name || 'File'} is over ${max / MB} MB`); continue; }
+    const a = { type: image ? 'image' : 'file', name: f.name || (image ? 'pasted image' : 'file'), mediaType: f.type, data: await readBase64(f) };
+    if (image) a.thumb = URL.createObjectURL(f);
+    attachments.push(a);
+  }
+  renderChips();
+}
+
+function renderChips() {
+  $('chips').replaceChildren(...attachments.map((a, i) => {
+    const chip = el('span', 'chip');
+    chip.title = a.path ?? a.name;
+    if (a.thumb) {
+      const img = el('img');
+      img.src = a.thumb;
+      img.alt = '';
+      chip.append(img);
+    } else {
+      chip.insertAdjacentHTML('beforeend', a.dir ? FOLDER_ICON : FILE_ICON); // constant markup, no user data
+    }
+    const x = el('button', 'cx', '×');
+    x.type = 'button';
+    x.setAttribute('aria-label', `Remove ${a.name}`);
+    x.onclick = () => {
+      if (a.thumb) URL.revokeObjectURL(a.thumb);
+      attachments.splice(i, 1);
+      renderChips();
+    };
+    chip.append(el('span', 'nm', a.name), x);
+    return chip;
+  }));
+}
+
+function clearAttachments() {
+  for (const a of attachments) if (a.thumb) URL.revokeObjectURL(a.thumb);
+  attachments = [];
+  renderChips();
+}
+
+$('input').addEventListener('paste', e => {
+  const files = [...(e.clipboardData?.files ?? [])];
+  if (!files.length) return;
+  if (!e.clipboardData.getData('text/plain')) e.preventDefault(); // a pasted screenshot, not text
+  addFiles(files);
+});
+
+// Drop anywhere. The overlay covers the panels too, since their iframes would swallow the drop.
+let dragDepth = 0;
+const hasFiles = e => [...(e.dataTransfer?.types ?? [])].includes('Files');
+addEventListener('dragenter', e => {
+  if (!hasFiles(e)) return;
+  e.preventDefault();
+  dragDepth++;
+  $('drop').hidden = false;
+});
+addEventListener('dragover', e => { if (hasFiles(e)) e.preventDefault(); }); // also stops the browser opening the file
+addEventListener('dragleave', e => {
+  if (hasFiles(e) && --dragDepth <= 0) {
+    dragDepth = 0;
+    $('drop').hidden = true;
+  }
+});
+addEventListener('drop', e => {
+  if (!hasFiles(e)) return;
+  e.preventDefault();
+  dragDepth = 0;
+  $('drop').hidden = true;
+  const isDir = [...e.dataTransfer.items].map(it => Boolean(it.webkitGetAsEntry?.()?.isDirectory));
+  if (isDir.some(Boolean)) attachError('Folders can’t be dropped: use ＋ → Attach folder…');
+  addFiles([...e.dataTransfer.files].filter((_, i) => !isDir[i]));
+});
+
+// ＋ menu: native pickers (the server opens them, so we get real paths) and MCP server status.
+function setPlusOpen(open) {
+  $('pmenu').hidden = !open;
+  $('plusWrap').classList.toggle('open', open);
+  $('plusBtn').setAttribute('aria-expanded', open);
+  if (open) loadMcp();
+}
+$('plusBtn').onclick = () => setPlusOpen($('pmenu').hidden);
+addEventListener('click', e => { if (!$('plusWrap').contains(e.target)) setPlusOpen(false); });
+
+async function pickInto(folder) {
+  setPlusOpen(false);
+  const r = await api({ t: 'pickPaths', folder });
+  const body = await r.json().catch(() => ({ error: `Request failed (${r.status})` }));
+  if (!r.ok) return attachError(body.error);
+  for (const p of body.paths ?? []) {
+    if (attachments.length >= 10) { attachError('At most 10 attachments'); break; }
+    attachments.push({ type: 'path', path: p, dir: folder, name: p.replace(/\/$/, '').split('/').pop() || p });
+  }
+  renderChips();
+  $('input').focus();
+}
+$('attachFiles').onclick = () => pickInto(false);
+$('attachFolder').onclick = () => pickInto(true);
+
+const MCP_ORDER = { connected: 0, 'needs-auth': 1, failed: 2, pending: 3, disabled: 4 };
+const MCP_LABEL = { connected: 'connected', 'needs-auth': 'needs sign-in', failed: 'failed', pending: 'connecting…', disabled: 'off' };
+async function loadMcp() {
+  const list = $('mcpList');
+  if (!list.childElementCount) list.replaceChildren(el('div', 'note', 'Checking MCP servers…'));
+  const r = await api({ t: 'mcpStatus' }).catch(() => null);
+  const body = r?.ok ? await r.json() : null;
+  if ($('pmenu').hidden) return;
+  const servers = [...(body?.servers ?? [])].sort((a, b) => (MCP_ORDER[a.status] ?? 9) - (MCP_ORDER[b.status] ?? 9) || a.name.localeCompare(b.name));
+  const connected = servers.filter(x => x.status === 'connected').length;
+  const head = el('div', 'kicker');
+  head.append(el('span', '', 'MCP servers'), el('span', '', servers.length ? `${connected} of ${servers.length} connected` : ''));
+  const rows = servers.map(x => {
+    const row = el('div', `mcp ${x.status}`);
+    row.append(el('i', 'dot'), el('span', 'nm', x.name), el('span', 'st', MCP_LABEL[x.status] ?? x.status));
+    return row;
+  });
+  const notes = [];
+  if (!body?.live) notes.push(el('div', 'note', servers.length ? 'Last seen. They reconnect when this session’s next message starts.' : 'Your MCP servers connect when this session starts. Send a message first.'));
+  if (servers.some(x => x.status === 'needs-auth')) notes.push(el('div', 'note', 'To sign in, use /mcp in Claude Code.'));
+  list.replaceChildren(head, ...rows, ...notes);
+  if (body?.live && servers.some(x => x.status === 'pending')) setTimeout(() => { if (!$('pmenu').hidden) loadMcp(); }, 1500); // still connecting
 }
 
 // ---------- comment mode ----------
@@ -812,16 +1008,22 @@ function openComment(id, p, { target, rect }) {
 
 $('commentBtn').onclick = () => setCommenting(!commenting);
 $('folderBtn').onclick = () => api({ t: 'openFolder' });
+$('clearBtn').onclick = () => confirmAction({
+  title: 'Clear the canvas?',
+  text: 'Every panel is removed. The agent is told with your next message.',
+  ok: 'Clear',
+  run: () => { closeComment(); api({ t: 'clearCanvas' }); },
+});
 // Panels forward these keys too, since focus is often inside an iframe after a click.
 function onKey(key, inField) {
   if (key === 'Escape') {
-    if (!$('newMenu').hidden) setNewMenu(false);
+    if (!$('pmenu').hidden) setPlusOpen(false);
     else if (!$('hist').hidden) setHistOpen(false);
     else if (!$('settingsPop').hidden) setSettingsOpen(false);
     else if (pop) closeComment();
     else if (commenting) setCommenting(false);
   }
-  if (key === 'c' && !inField) setCommenting(!commenting);
+  if (key === 'c' && !inField && !document.querySelector('dialog[open]')) setCommenting(!commenting);
 }
 addEventListener('keydown', e => {
   if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && ['b', 'k'].includes(e.key)) {
@@ -850,13 +1052,23 @@ if (startJump) {
   jumpTo(startJump);
 }
 
-$('form').onsubmit = e => {
+$('form').onsubmit = async e => {
   e.preventDefault();
   const text = $('input').value.trim();
-  if (!text) return;
+  if (!text && !attachments.length) return;
+  const keep = attachments;
   $('input').value = '';
   recall = -1;
-  api({ t: 'prompt', text });
+  attachments = [];
+  renderChips();
+  const r = await api({ t: 'prompt', text, attachments: keep.map(({ thumb, dir, ...a }) => a) }); // thumb/dir are display-only
+  if (r.ok) return keep.forEach(a => a.thumb && URL.revokeObjectURL(a.thumb));
+  // Rejected (e.g. an attachment the server refused): put everything back so nothing is lost.
+  const body = await r.json().catch(() => ({}));
+  if (!$('input').value) $('input').value = text;
+  attachments = keep;
+  renderChips();
+  attachError(body.error || `Send failed (${r.status})`);
 };
 $('send').onclick = e => {
   if (!activity.busy) return; // idle: normal submit
@@ -869,7 +1081,7 @@ $('input').onkeydown = e => {
   // Shell-style recall of typed prompts: ↑ from an empty box, then ↑/↓ while browsing.
   const up = e.key === 'ArrowUp' && (recall >= 0 || !$('input').value);
   const down = e.key === 'ArrowDown' && recall >= 0;
-  const typed = inputs.filter(x => x.kind === 'prompt');
+  const typed = inputs.filter(x => x.kind === 'prompt' && x.text);
   if ((!up && !down) || !typed.length) return;
   e.preventDefault();
   recall = up ? Math.min(recall + 1, typed.length - 1) : recall - 1;
