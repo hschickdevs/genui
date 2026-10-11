@@ -6,8 +6,6 @@
 
 **genui** is an agent harness on the [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview) where **the only output is generated UI**. There is no markdown and no chat transcript. A strong model does the thinking and tool use, then hands short briefs to a pool of fast models that stream them into interactive panels, in seconds rather than minutes.
 
-![A session answering "How does this repo work?" as panels](docs/screenshot.png)
-
 ![Demo, real time](docs/demo.gif)
 
 *Real-time capture, not sped up. Full video: [docs/demo.webm](docs/demo.webm).*
