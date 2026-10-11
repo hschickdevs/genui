@@ -14,7 +14,6 @@
 
 - [Why genui](#why-genui)
 - [How it works](#how-it-works)
-- [Speed](#speed)
 - [Install](#install)
 - [CLI](#cli)
 - [Sessions](#sessions)
@@ -28,7 +27,7 @@ The paper shows people strongly prefer generated interfaces, but measured that *
 
 | Paper's limitation | genui's answer |
 |---|---|
-| **1–2 minutes per page** (streaming only halves the perceived wait) | A strong planner writes a short brief; a pre-warmed fast model streams the HTML. Panels show first content in **~0.5–3 s**, and only the panel that changed is redrawn. |
+| **1–2 minutes per page** (streaming only halves the perceived wait) | A strong planner writes a short brief; pre-warmed fast renderers (first token ~0.7 s) stream the HTML, in parallel, while the planner keeps working. Panels show first content in **~0.5–3 s** and finish in ~5–14 s, and only the panel that changed is redrawn. What's left is mostly the planner's own tool use. |
 | **Occasional JS/CSS/HTML errors** | Each panel is its own sandboxed iframe, so an error breaks one panel, not the page. Errors show as a badge, and a failed render falls back to the brief's text. |
 
 **Why a smaller renderer doesn't cost quality.** Anthropic's own research finds that a strong model directing smaller ones holds up, and can even beat a single strong model:
@@ -64,19 +63,6 @@ flowchart LR
 | **Comments** | Press **C** (or the speech-bubble icon in the header), click any element in a panel and type. The planner gets the element's visible text with your comment, so you don't have to describe what you mean. Esc exits. |
 | **Chat bar** | While the planner works, a line above the input shows what it's working on: your last prompt, click, comment or answer. The clock button lists everything sent in this session; click an entry to reuse it, or press ↑ in an empty input to recall earlier prompts. |
 | **Approvals** | Drawn by the harness, never by a model, so the agent requesting an action can't design its own consent screen. |
-
-## Speed
-
-| Technique | Effect |
-|---|---|
-| Renderer workers are long-lived CLI sessions fed by a queue | No process spawn per render |
-| One warm-up turn per worker at boot | First token: ~2.4s cold → **~0.7s** warm |
-| `ui_show` doesn't block | The planner keeps working while panels render. Several panels render in parallel. |
-| Brief instead of a full page | Opus writes a short brief. Haiku writes the much longer HTML. |
-| Tokens streamed into the iframe, one DOM swap per frame | Panels paint from the first token. A skeleton shows before that. |
-| Panels update in place by id | The paper regenerates the whole page; here only the panel that changed is redrawn |
-
-Measured on a laptop: each panel header shows its own numbers. First paint has been **0.5–3.0s** and complete panels **4.8–13.5s**. End-to-end time is dominated by the planner reading code and running tools, not by rendering.
 
 ## Install
 
