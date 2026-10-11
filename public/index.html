@@ -149,7 +149,7 @@
   button:hover { border-color: var(--accent); }
   button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
   .prompt { position: relative; z-index: 1; display: flex; gap: 8px; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 8px; box-shadow: 0 4px 16px rgb(15 23 42 / .06); }
-  .prompt textarea { flex: 1; border: 0; outline: 0; resize: none; font: inherit; padding: 6px 8px; height: 40px; }
+  .prompt textarea { flex: 1; border: 0; outline: 0; resize: none; font: inherit; padding: 10px 8px; height: 40px; } /* (40px - one 19.6px line) / 2: text centered with the buttons */
   /* chat bar: what the planner is working on (only while busy) + input history */
   /* A grey tab tucked behind the prompt box: its bottom 10px sit under the box (-18px margin = 10px + the dock gap), so growing its height slides it up from behind. */
   .ctx { display: flex; align-items: center; gap: 8px; height: 0; margin: -1px 12px -18px; padding: 0 12px 10px; overflow: hidden; opacity: 0; background: #f1f5f9; border: 1px solid var(--line); border-bottom: 0; border-radius: 10px 10px 0 0; font-size: 12px; color: var(--muted); transition: height .22s ease, margin .22s ease, opacity .15s; }
