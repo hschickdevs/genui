@@ -1,10 +1,10 @@
 ![genui](docs/logo-lockup.svg)
 
-> A properly prompted modern LLM (Gemini 3) can robustly generate a full custom interactive web page for almost any prompt. Humans prefer it over markdown 82.8% of the time. Main costs: 1–2 minute generation and occasional JS/CSS/HTML errors.
+> A properly prompted modern LLM (Gemini 3) can robustly generate a full custom interactive web page for almost any prompt. Humans prefer it over markdown 82.8% of the time.
 >
 > — summarized from Leviathan et al., [*Generative UI: LLMs are Effective UI Generators*](https://arxiv.org/pdf/2604.09577), Google Research ([blog](https://research.google/blog/generative-ui-a-rich-custom-visual-interactive-user-experience-for-any-prompt/), [examples](https://generativeui.github.io))
 
-**genui** removes that main cost through orchestration. It's an agent harness on the [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview) where **the only output is generated UI**: no markdown, no chat transcript. Instead of one model writing a whole page, a strong model (Opus or Fable) does the thinking and writes a short brief, and a pool of pre-warmed fast models (Haiku) streams each brief into an interactive panel. Panels start appearing in **~0.5–3 seconds instead of 1–2 minutes**. [Why this works →](#why-genui)
+**genui** makes this fast through orchestration. It's an agent harness on the [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview) where **the only output is generated UI**: no markdown, no chat transcript. Instead of one model writing a whole page, a strong model (Opus or Fable) does the thinking and writes a short brief, and a pool of pre-warmed fast models (Haiku) streams each brief into an interactive panel. Panels start appearing in **~0.5–3 seconds instead of 1–2 minutes**. [Why this works →](#why-genui)
 
 ![Demo, real time](docs/demo.gif)
 
