@@ -19,8 +19,6 @@ It stays fast through orchestration: a strong model (Opus or Fable) does the thi
 - [Install](#install)
 - [CLI](#cli)
 - [Sessions](#sessions)
-- [Settings](#settings)
-- [Auth note](#auth-note)
 - [License](#license)
 
 ## Why genui
@@ -120,27 +118,6 @@ A **session** is one Claude Code session (same id, same title) plus its canvas. 
 - The sidebar dot pulses indigo while a session works and turns amber when it needs your approval or answer. Those sessions are listed under **Needs you**.
 
 ![Trust-model panel with the sidebar collapsed](docs/screenshot-2.png)
-
-## Settings
-
-The ⚙ menu (top right) sets permissions, the planning and rendering models and their effort, and lists the keybinds. Changes apply immediately, also to running sessions, and are saved to `~/.genui/settings.json`.
-
-![Settings menu](docs/settings.png)
-
-| Permissions | Behaviour |
-|---|---|
-| **Allow all** (default) | Runs any command or file edit without asking |
-| Auto | A classifier approves or denies each action |
-| Auto-accept edits | Edits run; commands ask |
-| Ask before edits and commands | Every edit or non-read-only command asks |
-
-In the asking modes, approvals appear as a card drawn by the harness, never by the model:
-
-![Harness-drawn approval card](docs/approval.png)
-
-## Auth note
-
-genui never reads, stores or forwards credentials. The Agent SDK runs the unmodified `claude` binary, which uses whatever login you already have. Anthropic's [policy](https://code.claude.com/docs/en/legal-and-compliance) allows a user to sign in to the stock Claude Code binary with their own subscription. It also says anyone **building a product for other people** should use API keys. Treat this repo as a personal tool, and use `ANTHROPIC_API_KEY` if you build on it for others.
 
 ## License
 
