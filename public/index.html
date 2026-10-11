@@ -4,18 +4,120 @@
 <meta charset="utf-8">
 <title>genui</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.png" type="image/png" sizes="64x64">
 <style>
-  :root { --line: #e2e8f0; --muted: #64748b; --ink: #1e293b; --accent: #4f46e5; --bg: #f8fafc; }
+  :root { --sb: 272px; --brand: 56px; --line: #e2e8f0; --muted: #64748b; --ink: #1e293b; --accent: #4f46e5; --amber: #f59e0b; --bg: #f8fafc; --hover: #f1f5f9; }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body { margin: 0; font: 14px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--bg); }
-  header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 12px; padding: 10px 20px; background: #fff; border-bottom: 1px solid var(--line); }
+  header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 12px; padding: 10px 20px; transition: padding-left .18s ease; background: #fff; border-bottom: 1px solid var(--line); }
   .brand { font-weight: 700; letter-spacing: -.01em; }
   .mark { width: 22px; height: 22px; margin-right: -4px; }
-  .activity { display: none; align-items: center; gap: 8px; padding: 0 12px; color: var(--muted); font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
-  .activity.on { display: flex; }
-  .activity .dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: pulse 1s infinite; }
-  .activity .status { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 4; width: var(--sb); display: flex; flex-direction: column; gap: 8px; padding: 60px 10px 8px; background: #fff; border-right: 1px solid var(--line); transition: transform .18s ease, visibility 0s; }
+  .sb-closed .sidebar { transform: translateX(-100%); visibility: hidden; transition: transform .18s ease, visibility 0s .18s; }
+  .shell { margin-left: var(--sb); transition: margin-left .18s ease; }
+  .sb-closed .shell { margin-left: 0; }
+  .brandbar { position: fixed; top: 0; left: 0; z-index: 6; width: var(--sb); height: 52px; display: flex; align-items: center; gap: 12px; padding: 0 14px 0 16px; transition: width .18s ease; }
+  .brandbar .tool { margin-left: auto; }
+  .brandbar .mark, .brandbar .brand, .brandbar .tool { transition: opacity .12s; }
+  .brandbar .brand { white-space: nowrap; }
+  /* Collapsed: just the mark; hovering or focusing it swaps in the open-sidebar button. */
+  .sb-closed .brandbar { width: var(--brand); overflow: hidden; }
+  .sb-closed .brandbar .brand { opacity: 0; }
+  .sb-closed .brandbar .tool { position: absolute; top: 10px; left: 11px; margin: 0; opacity: 0; }
+  .sb-closed .brandbar:is(:hover, :focus-within) .tool { opacity: 1; }
+  .sb-closed .brandbar:is(:hover, :focus-within) .mark { opacity: 0; }
+  .brandbar::after { content: ""; position: absolute; right: 0; top: 14px; bottom: 14px; width: 1px; background: var(--line); opacity: 0; transition: opacity .18s; }
+  .sb-closed .brandbar::after { opacity: 1; }
+  .sb-closed header { padding-left: calc(var(--brand) + 16px); }
+  .sb-search { position: relative; }
+  .sb-search input { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 7px 40px 7px 10px; font: inherit; outline: 0; background: var(--bg); }
+  .sb-search input:focus { border-color: var(--accent); background: #fff; }
+  .sb-search kbd { position: absolute; right: 8px; top: 50%; translate: 0 -50%; }
+  kbd { padding: 1px 5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; background: #fff; color: var(--muted); font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .sb-new { display: flex; align-items: center; gap: 8px; border: 0; padding: 7px 10px; color: var(--ink); background: none; font-weight: 600; }
+  .sb-new:hover, .gplus:hover { background: var(--hover); }
+  .sb-list { flex: 1; overflow-y: auto; margin: 0 -4px; padding: 0 4px; }
+  .group { display: flex; align-items: center; justify-content: space-between; margin: 12px 0 2px; padding: 0 6px 0 10px; color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  .group.needs { color: #b45309; }
+  .gplus { visibility: hidden; border: 0; padding: 0 6px; background: none; color: var(--muted); font-size: 15px; line-height: 20px; }
+  .group:hover .gplus, .gplus:focus-visible { visibility: visible; }
+  .item { position: relative; }
+  .item .go { width: 100%; display: grid; grid-template-columns: 14px 1fr; column-gap: 6px; align-items: center; border: 0; padding: 6px 10px; text-align: left; background: none; }
+  .item .go:hover, .item.hl .go { background: var(--hover); }
+  .item.active .go { background: #eef2ff; }
+  .item .t, .item .sub { grid-column: 2; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item .t, .item .sub { padding-right: 26px; } /* room for the × */
+  .item.active .t { font-weight: 600; }
+  .item .sub { color: var(--muted); font-size: 12px; }
+  .item.busy .sub { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--accent); }
+  .item.waiting .sub { color: #b45309; }
+  .pip { grid-row: 1; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid #cbd5e1; }
+  .pip.live { background: #cbd5e1; }
+  .pip.busy { border-color: var(--accent); background: var(--accent); animation: pulse 1s infinite; }
+  .pip.waiting { border-color: var(--amber); background: var(--amber); }
+  .arch { position: absolute; top: 50%; right: 6px; translate: 0 -50%; display: none; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--muted); }
+  .item:is(:hover, :focus-within) .arch { display: grid; }
+  .arch:hover { color: var(--ink); background: #e2e8f0; }
+  .none { margin: 16px 10px; color: var(--muted); font-size: 13px; }
+  .sb-newrow { position: relative; display: flex; align-items: center; gap: 2px; }
+  .sb-newrow .sb-new { flex: 1; }
+  .sb-more { width: 28px; height: 28px; }
+  .sb-more svg { width: 16px; height: 16px; }
+  .sb-menu { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 6; display: grid; gap: 2px; padding: 4px; }
+  .mi { width: 100%; border: 0; border-radius: 8px; padding: 7px 10px; background: none; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mi:hover { background: var(--hover); }
+  .mi .muted { color: var(--muted); }
+  .sb-menu form { padding: 2px 4px 4px; }
+  .sb-menu input { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; outline: 0; font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .sb-menu input:focus { border-color: var(--accent); }
+  .sb-menu .err { display: block; padding: 4px 2px 0; color: #e11d48; font-size: 12px; }
+  .sb-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 4px 6px 0; color: var(--muted); font-size: 11px; }
+  .crumb { min-width: 0; display: flex; align-items: baseline; gap: 10px; }
+  .s-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: text; }
+  .s-meta { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .rename { width: min(420px, 50vw); border: 1px solid var(--accent); border-radius: 6px; padding: 2px 6px; font: inherit; font-weight: 600; outline: 0; }
+  .comment-host { margin-left: auto; }
+  .settings, .comment-host, .folder-host { position: relative; display: flex; }
+  :is(.comment-host, .folder-host):has(.tool:hover, .tool:focus-visible) .tt { opacity: 1; }
+  .tt .sub { display: block; margin-top: 2px; color: #94a3b8; font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .tt kbd { margin-left: 4px; border: 0; background: #1e293b; color: #cbd5e1; }
+  #commentBtn[aria-pressed="true"] + .tt .off, #commentBtn[aria-pressed="false"] + .tt .on { display: none; }
+  .tt { position: absolute; top: calc(100% + 6px); right: 0; padding: 4px 8px; border-radius: 6px; background: #0f172a; color: #e2e8f0; font-size: 12px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .12s; }
+  .settings:has(#gear:hover, #gear:focus-visible):not(.open) .tt { opacity: 1; }
+  .settings .pop { position: absolute; top: calc(100% + 8px); right: 0; z-index: 5; width: 340px; display: grid; gap: 10px; }
+  .field { display: grid; gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
+  .field select { width: 100%; min-width: 0; font: inherit; font-size: 14px; font-weight: 400; color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: #fff; }
+  .warn { margin: -4px 0 0; color: #b45309; font-size: 12px; }
+  .saved { position: absolute; top: 12px; right: 14px; margin: 0; color: #047857; font-size: 12px; } /* overlays the header line: no reserved space */
+  .pair { display: grid; grid-template-columns: minmax(0, 1fr) 112px; gap: 6px; }
+  .field-row { display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid var(--line); font-size: 12px; font-weight: 600; color: var(--muted); }
+  .field-row button { padding: 4px 12px; font-size: 13px; font-weight: 400; color: var(--ink); }
+  dialog { width: min(520px, 92vw); padding: 0; border: 0; border-radius: 14px; color: var(--ink); box-shadow: 0 24px 64px rgb(15 23 42 / .25); }
+  dialog::backdrop { background: rgb(15 23 42 / .35); }
+  .keys-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 12px 12px 18px; border-bottom: 1px solid var(--line); }
+  .keys-head h2, dialog.confirm h2 { margin: 0; font-size: 15px; }
+  dialog.confirm { width: min(380px, 92vw); }
+  dialog.confirm form { display: grid; gap: 8px; padding: 18px; }
+  dialog.confirm p { margin: 0; color: var(--muted); }
+  dialog.confirm .row { justify-content: flex-end; }
+  button.danger { background: #e11d48; border-color: #e11d48; color: #fff; }
+  .keys-body { display: grid; gap: 14px; padding: 14px 18px 18px; }
+  .keys-body h3 { margin: 0 0 4px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .keys-body dl { display: grid; grid-template-columns: 150px 1fr; gap: 6px 12px; margin: 0; }
+  .keys-body dt { display: flex; gap: 4px; align-items: center; }
+  .keys-body dd { margin: 0; }
+  .tool { flex: none; display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; background: none; color: var(--muted); }
+  .tool svg { width: 18px; height: 18px; }
+  .tool:hover { color: var(--ink); background: var(--hover); }
+  .tool[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .comment { position: absolute; z-index: 3; width: 320px; }
+  .comment textarea { display: block; width: 100%; height: 60px; resize: none; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font: inherit; outline: 0; }
+  .comment textarea:focus { border-color: var(--accent); }
+  .comment .kicker { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   @keyframes pulse { 50% { opacity: .3; } }
+  @keyframes spin { to { rotate: 360deg; } }
+  @keyframes glow { 50% { box-shadow: 0 0 0 5px rgb(79 70 229 / .18); } }
 
   main { max-width: 1280px; margin: 0 auto; padding: 20px 20px 220px; display: grid; grid-template-columns: 1fr 1fr; grid-auto-flow: dense; gap: 16px; align-items: start; }
   .empty { grid-column: span 2; text-align: center; color: var(--muted); padding: 120px 0; }
@@ -36,8 +138,9 @@
   @keyframes shimmer { to { background-position: -200% 0; } }
   @keyframes in { from { opacity: 0; transform: translateY(4px); } }
 
-  footer { position: fixed; bottom: 0; left: 0; right: 0; padding: 12px 20px 16px; background: linear-gradient(transparent, var(--bg) 24px); }
-  .dock { max-width: 860px; margin: 0 auto; display: grid; gap: 8px; }
+  footer { position: fixed; bottom: 0; left: var(--sb); right: 0; transition: left .18s ease; padding: 12px 20px 16px; background: linear-gradient(transparent, var(--bg) 24px); }
+  .sb-closed footer { left: 0; }
+  .dock { width: 100%; max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; } /* flex, not grid: the chat-bar tab tucks under the prompt with a negative margin */
   .card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; box-shadow: 0 4px 16px rgb(15 23 42 / .06); }
   .card.approve { border-color: #f59e0b; }
   .card .kicker { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 4px; }
@@ -46,28 +149,162 @@
   button { font: inherit; border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 6px 12px; cursor: pointer; }
   button:hover { border-color: var(--accent); }
   button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .prompt { display: flex; gap: 8px; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 8px; box-shadow: 0 4px 16px rgb(15 23 42 / .06); }
+  .prompt { position: relative; z-index: 1; display: flex; gap: 8px; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 8px; box-shadow: 0 4px 16px rgb(15 23 42 / .06); }
   .prompt textarea { flex: 1; border: 0; outline: 0; resize: none; font: inherit; padding: 6px 8px; height: 40px; }
+  /* chat bar: what the planner is working on (only while busy) + input history */
+  /* A grey tab tucked behind the prompt box: its bottom 10px sit under the box (-18px margin = 10px + the dock gap), so growing its height slides it up from behind. */
+  .ctx { display: flex; align-items: center; gap: 8px; height: 0; margin: -1px 12px -18px; padding: 0 12px 10px; overflow: hidden; opacity: 0; background: #f1f5f9; border: 1px solid var(--line); border-bottom: 0; border-radius: 10px 10px 0 0; font-size: 12px; color: var(--muted); transition: height .22s ease, margin .22s ease, opacity .15s; }
+  .ctx.on { height: 38px; margin-top: 0; opacity: 1; }
+  .ctx .dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: pulse 1s infinite; }
+  .ctx b { flex: none; font-weight: 600; color: #475569; }
+  .ctx .txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ctx .where { flex: none; }
+  .hist-wrap { position: relative; display: flex; align-items: center; }
+  .hist-wrap .tt { top: auto; bottom: calc(100% + 10px); }
+  .hist-wrap:has(.tool:hover, .tool:focus-visible):not(.open) .tt { opacity: 1; }
+  .hist { position: absolute; right: 0; bottom: calc(100% + 14px); z-index: 5; width: min(440px, 80vw); max-height: 50vh; overflow: auto; padding: 6px; }
+  .hist .kicker { padding: 6px 8px 4px; }
+  .hist ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  .hist li button { width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 6px 8px; border: 0; border-radius: 8px; background: none; text-align: left; }
+  .hist li button:hover { background: var(--hover); }
+  .hist .k, .hist .ago { font-size: 11px; color: var(--muted); }
+  .hist .x { grid-column: 1 / -1; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: pre-wrap; }
+  .hist .none { padding: 10px 8px; color: var(--muted); }
+  .send-wrap { position: relative; display: flex; }
+  .send { min-width: 76px; display: grid; place-items: center; border-radius: 10px; transition: background .15s, border-color .15s; }
+  .send > * { grid-area: 1 / 1; transition: opacity .15s, transform .15s; }
+  .send svg { width: 18px; height: 18px; opacity: 0; transform: scale(.5); }
+  .send .spin circle { transform-origin: center; animation: spin .8s linear infinite; }
+  .busy .send { animation: glow 1.6s ease-in-out infinite; }
+  .busy .send .label { opacity: 0; transform: scale(.5); }
+  .busy .send .spin { opacity: 1; transform: none; }
+  .busy .send:is(:hover, :focus-visible) { background: var(--ink); border-color: var(--ink); animation: none; }
+  .busy .send:is(:hover, :focus-visible) .spin { opacity: 0; transform: scale(.5); }
+  .busy .send:is(:hover, :focus-visible) .stop { opacity: 1; transform: none; }
+  .tip { position: absolute; right: 0; bottom: calc(100% + 12px); width: max-content; max-width: min(440px, 80vw); padding: 8px 12px; border-radius: 10px; background: #0f172a; color: #e2e8f0; box-shadow: 0 8px 24px rgb(15 23 42 / .25); opacity: 0; transform: translateY(4px); pointer-events: none; transition: opacity .15s, transform .15s; }
+  .tip::after { content: ""; position: absolute; right: 30px; top: 100%; border: 6px solid transparent; border-top-color: #0f172a; }
+  .tip .now { display: flex; align-items: center; gap: 8px; font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .tip .now span:nth-child(2) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #elapsed { flex: none; white-space: nowrap; color: #94a3b8; }
+  .tip .dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: #818cf8; animation: pulse 1s infinite; }
+  .tip .hint { margin-top: 4px; color: #94a3b8; font-size: 11px; }
+  .tip ol { margin: 0 0 6px; padding: 0 0 6px; list-style: none; border-bottom: 1px solid #1e293b; display: grid; gap: 3px; }
+  .tip ol:empty { display: none; }
+  .tip li { max-width: 416px; color: #94a3b8; font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tip li::before { content: "✓  "; color: #64748b; }
+  .busy .send-wrap:is(:hover, :has(.send:focus-visible)) .tip, .tip.flash { opacity: 1; transform: none; } /* not :focus-within: a clicked Send keeps focus */
   .other { flex: 1; min-width: 160px; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font: inherit; }
 </style>
 </head>
 <body>
-<header><img class="mark" src="/logo.svg" alt=""><span class="brand">genui</span></header>
+<div class="brandbar">
+  <img class="mark" src="/logo.svg" alt=""><span class="brand">genui</span>
+  <button class="tool" id="sbToggle" aria-label="Toggle sidebar" aria-controls="sidebar" aria-expanded="true" title="Toggle sidebar (⌘B)" aria-keyshortcuts="Meta+B Control+B">
+    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M9.5 4.5v15"/></svg>
+  </button>
+</div>
+<aside class="sidebar" id="sidebar" aria-label="Sessions">
+  <div class="sb-search">
+    <input id="jump" type="search" placeholder="Jump to session…" aria-label="Jump to session" autocomplete="off" spellcheck="false" aria-keyshortcuts="Meta+K Control+K">
+    <kbd>⌘K</kbd>
+  </div>
+  <div class="sb-newrow" id="newRow">
+    <button class="sb-new" id="newBtn"><span aria-hidden="true">＋</span> New session</button>
+    <button class="tool sb-more" id="newMore" aria-label="More ways to start a session" aria-expanded="false" aria-controls="newMenu">
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
+    <div class="card sb-menu" id="newMenu" hidden>
+      <button class="mi" id="newHere">In <span id="newHereName"></span> <span class="muted">(current)</span></button>
+      <button class="mi" id="otherBtn">In another folder…</button>
+      <form id="folderForm" hidden>
+        <input id="folderPath" placeholder="/absolute/path/to/folder" spellcheck="false" autocomplete="off" aria-label="Folder path">
+        <span class="err" id="folderErr" role="alert"></span>
+      </form>
+    </div>
+  </div>
+  <nav class="sb-list" id="list" aria-label="Sessions"></nav>
+  <div class="sb-foot"><kbd>⌘B</kbd> sidebar <kbd>⌘K</kbd> jump <kbd>C</kbd> comment</div>
+</aside>
+<div class="shell">
+<header>
+  <div class="crumb"><span class="s-title" id="sTitle" title="Double-click to rename"></span><span class="s-meta" id="sMeta"></span></div>
+  <div class="comment-host">
+    <button class="tool" id="commentBtn" aria-pressed="false" aria-label="Comment" aria-keyshortcuts="c">
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    </button>
+    <span class="tt" aria-hidden="true"><span class="off">Comment <kbd>C</kbd></span><span class="on">Exit comments <kbd>Esc</kbd></span></span>
+  </div>
+  <div class="folder-host">
+    <button class="tool" id="folderBtn" aria-label="Open working folder">
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+    </button>
+    <span class="tt" aria-hidden="true">Open working folder<span class="sub" id="cwdTip"></span></span>
+  </div>
+  <div class="settings" id="settings">
+    <button class="tool" id="gear" aria-label="Settings" aria-expanded="false" aria-controls="settingsPop">
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+    </button>
+    <span class="tt" aria-hidden="true">Settings</span>
+    <div class="card pop" id="settingsPop" role="dialog" aria-label="Settings" hidden>
+      <label class="field">Permissions<select id="set-permissionMode"></select></label>
+      <p class="warn" id="permWarn">Runs any command or file edit without asking.</p>
+      <div class="field">Planning model<div class="pair"><select id="set-plannerModel" aria-label="Planning model"></select><select id="set-plannerEffort" aria-label="Planning effort" title="Effort"></select></div></div>
+      <div class="field">Rendering model<div class="pair"><select id="set-renderModel" aria-label="Rendering model"></select><select id="set-renderEffort" aria-label="Rendering effort" title="Effort"></select></div></div>
+      <div class="field-row"><span>Keybinds</span><button type="button" id="keysBtn" aria-haspopup="dialog">View</button></div>
+      <p class="saved" id="saved" aria-live="polite"></p>
+    </div>
+  </div>
+</header>
 <main id="canvas"><div class="empty" id="empty"><b>Ask anything.</b>Answers arrive as interface, not text.</div></main>
 <footer>
   <div class="dock">
     <div id="cards" class="dock"></div>
-    <div class="activity" id="activity" aria-live="polite"><span class="dot"></span><span class="status" id="status"></span></div>
+    <div class="ctx" id="ctx"><span class="dot"></span><b id="ctxKind"></b><span class="txt" id="ctxText"></span><span class="where" id="ctxWhere"></span></div>
     <form class="prompt" id="form">
       <textarea id="input" placeholder="What do you need?" autofocus></textarea>
-      <button class="primary">Send</button>
+      <div class="hist-wrap" id="histWrap">
+        <button type="button" class="tool" id="histBtn" aria-label="History" aria-expanded="false" aria-controls="hist">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
+        </button>
+        <span class="tt" aria-hidden="true">History <kbd>↑</kbd></span>
+        <div class="card hist" id="hist" role="dialog" aria-label="History" hidden></div>
+      </div>
+      <div class="send-wrap">
+        <div class="tip" id="tip" role="status" aria-live="polite">
+          <ol id="steps"></ol>
+          <div class="now"><span class="dot"></span><span id="status"></span><span id="elapsed"></span></div>
+          <div class="hint">Click to stop</div>
+        </div>
+        <button class="send primary" id="send" aria-label="Send">
+          <span class="label">Send</span>
+          <svg class="spin" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="40 100"/></svg>
+          <svg class="stop" viewBox="0 0 24 24" aria-hidden="true"><rect x="5.5" y="5.5" width="13" height="13" rx="3" fill="currentColor"/></svg>
+        </button>
+      </div>
     </form>
   </div>
 </footer>
+</div>
+<dialog class="confirm" id="rmDlg" aria-labelledby="rmTitle">
+  <form method="dialog" id="rmForm">
+    <h2 id="rmTitle">Remove session?</h2>
+    <p id="rmText"></p>
+    <div class="row"><button value="cancel" autofocus>Cancel</button><button class="danger" value="remove">Remove</button></div>
+  </form>
+</dialog>
+<dialog class="keys" id="keys" aria-labelledby="keysTitle">
+  <div class="keys-head"><h2 id="keysTitle">Keybinds</h2><button class="tool" id="keysClose" aria-label="Close">✕</button></div>
+  <div class="keys-body" id="keysBody"></div>
+</dialog>
 <script>
 const $ = id => document.getElementById(id);
 const panels = new Map(); // id -> { el, frame, seq, html, ready, final, queued }
-const api = body => fetch('/api', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+const empty = $('empty');
+let sessions = []; // [{ id, title, cwd, branch, lastActive, busy, waiting, live, step }]
+let active = new URLSearchParams(location.hash.slice(1)).get('s') || '';
+let source = null;
+// Cards and the prompt only exist for the active session, so every message targets it.
+const api = body => fetch('/api', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ session: active, ...body }) });
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -107,6 +344,8 @@ function handle(ev) {
   const p = panels.get(ev.id);
   switch (ev.t) {
     case 'panel': return openPanel(ev);
+    case 'inputs': inputs = ev.list; return renderInputs();
+    case 'input': inputs.push(ev.entry); return renderInputs();
     case 'chunk':
       if (!p || p.seq !== ev.seq) return;
       p.html += ev.d;
@@ -121,18 +360,383 @@ function handle(ev) {
     case 'remove':
       p?.el.remove();
       return panels.delete(ev.id);
-    case 'status': activity.text = ev.text; return renderActivity();
+    case 'status': activity.text = ev.text; activity.steps = ev.steps ?? []; return renderActivity();
     case 'busy': activity.busy = ev.on; return renderActivity();
     case 'ask': return askCard(ev);
     case 'approve': return approveCard(ev);
     case 'resolved': return document.querySelector(`[data-card="${ev.id}"]`)?.remove();
+    case 'sessions': return setSessions(ev.list);
+    case 'settings': return renderSettings(ev);
+    case 'goto': return ev.session ? openSession(ev.session) : jumpTo(ev.jump); // from the `genui` CLI
   }
 }
 
-const activity = { busy: false, text: '' };
+function setSessions(list) {
+  sessions = list;
+  if (!list.some(x => x.id === active)) return switchTo([...list].sort((a, b) => b.lastActive - a.lastActive)[0].id); // unknown hash or archived
+  renderSessions();
+  renderHeader();
+}
+
+// ---------- sidebar ----------
+const folderName = cwd => cwd.split('/').filter(Boolean).pop() || cwd;
+const current = () => sessions.find(x => x.id === active);
+let hl = ''; // keyboard-highlighted session in the sidebar
+
+function ago(ts) {
+  const m = Math.round((Date.now() - ts) / 60000);
+  return m < 1 ? 'just now' : m < 60 ? `${m}m ago` : m < 1440 ? `${Math.round(m / 60)}h ago` : `${Math.round(m / 1440)}d ago`;
+}
+
+function renderSessions() {
+  const words = $('jump').value.toLowerCase().split(/\s+/).filter(Boolean);
+  const list = sessions
+    .filter(x => words.every(w => `${x.title} ${folderName(x.cwd)}`.toLowerCase().includes(w)))
+    .sort((a, b) => b.lastActive - a.lastActive);
+  const groups = [];
+  const needs = list.filter(x => x.waiting);
+  if (needs.length) groups.push(['Needs you', null, needs]);
+  const byFolder = new Map(); // insertion order = most recently active folder first
+  for (const x of list) if (!x.waiting) byFolder.set(x.cwd, [...(byFolder.get(x.cwd) ?? []), x]);
+  for (const [cwd, items] of byFolder) groups.push([folderName(cwd), cwd, items]);
+  if (!list.some(x => x.id === hl)) hl = words.length ? list[0]?.id ?? '' : '';
+  $('list').replaceChildren(...groups.flatMap(([label, cwd, items]) => [groupRow(label, cwd), ...items.map(sessionRow)]));
+  if (!list.length) $('list').append(el('p', 'none', words.length ? 'No matching sessions' : 'No sessions'));
+}
+
+function groupRow(label, cwd) {
+  const g = el('div', `group${cwd ? '' : ' needs'}`);
+  const name = el('span', '', label);
+  if (cwd) name.title = cwd;
+  g.append(name);
+  if (cwd) {
+    const plus = el('button', 'gplus', '+');
+    plus.setAttribute('aria-label', `New session in ${label}`);
+    plus.title = `New session in ${label}`;
+    plus.onclick = () => newSession(cwd);
+    g.append(plus);
+  }
+  return g;
+}
+
+function sessionRow(x) {
+  const state = x.waiting ? 'waiting' : x.busy ? 'busy' : x.live ? 'live' : 'dormant';
+  const row = el('div', `item ${state}${x.id === active ? ' active' : ''}${x.id === hl ? ' hl' : ''}`);
+  row.dataset.id = x.id;
+  const go = el('button', 'go');
+  go.title = x.cwd;
+  if (x.id === active) go.setAttribute('aria-current', 'page');
+  const pip = el('i', `pip ${state}`);
+  pip.setAttribute('role', 'img');
+  pip.setAttribute('aria-label', { waiting: 'needs you', busy: 'working', live: 'idle', dormant: 'asleep' }[state]);
+  const sub = x.waiting ? 'Needs you' : x.busy ? x.step || 'Working…' : `${ago(x.lastActive)}${x.branch ? ` · ${x.branch}` : ''}`;
+  go.append(pip, el('span', 't', x.title || 'New session'), el('span', 'sub', sub));
+  go.onclick = () => openSession(x.id);
+  row.append(go);
+  if (!x.busy && sessions.length > 1) { // the server refuses busy or last sessions
+    const arch = el('button', 'arch', '×');
+    arch.setAttribute('aria-label', `Remove ${x.title || 'session'}`);
+    arch.onclick = () => confirmRemove(x);
+    row.append(arch);
+  }
+  return row;
+}
+
+function confirmRemove(x) {
+  $('rmText').textContent = `“${x.title || 'New session'}” leaves the sidebar. Its history is kept in ~/.genui/sessions/archive.`;
+  // Braces matter: an on* handler returning false would cancel the submit and keep the dialog open.
+  $('rmForm').onsubmit = e => {
+    if (e.submitter?.value !== 'remove') return;
+    // Archiving ends this session's event stream: move off it first instead of waiting ~3s for a reconnect.
+    if (x.id === active) switchTo(sessions.filter(s => s.id !== x.id).sort((a, b) => b.lastActive - a.lastActive)[0].id);
+    api({ t: 'archiveSession', id: x.id });
+  };
+  $('rmDlg').showModal();
+}
+
+function renderHeader() {
+  const x = current();
+  if (!x || $('sTitle').querySelector('input')) return; // don't clobber an in-progress rename
+  $('sTitle').textContent = x.title || 'New session';
+  $('sMeta').textContent = `${folderName(x.cwd)}${x.branch ? ` · ${x.branch}` : ''}`;
+  $('sMeta').title = x.cwd;
+  $('cwdTip').textContent = x.cwd;
+  document.title = `${x.title || 'New session'} · genui`;
+}
+
+function openSession(id) {
+  $('jump').value = '';
+  hl = '';
+  if (id !== active) switchTo(id);
+  else renderSessions();
+  $('input').focus();
+}
+
+// Opens the sidebar's jump list prefilled (used by `genui --resume`).
+function jumpTo(query) {
+  setSidebar(true);
+  $('jump').value = query;
+  hl = '';
+  renderSessions();
+  $('jump').focus();
+}
+
+async function newSession(cwd) {
+  const r = await api({ t: 'newSession', cwd });
+  const body = await r.json().catch(() => ({ error: `Request failed (${r.status})` }));
+  if (!r.ok) return body.error;
+  openSession(body.id);
+}
+
+function switchTo(id) {
+  active = id;
+  history.replaceState(null, '', `#s=${encodeURIComponent(id)}`);
+  closeComment();
+  inputs = [];
+  recall = -1;
+  setHistOpen(false);
+  panels.clear();
+  $('canvas').replaceChildren(empty);
+  $('cards').replaceChildren();
+  Object.assign(activity, { busy: false, text: '', steps: [] });
+  renderActivity();
+  renderSessions();
+  renderHeader();
+  connect();
+}
+
+function connect() {
+  source?.close();
+  const s = (source = new EventSource(`/events?session=${encodeURIComponent(active)}`));
+  s.onmessage = e => { if (s === source) handle(JSON.parse(e.data)); }; // drop events still queued from the previous session
+}
+
+const sidebarOpen = () => !document.body.classList.contains('sb-closed');
+function setSidebar(open) {
+  document.body.classList.toggle('sb-closed', !open);
+  $('sbToggle').setAttribute('aria-expanded', open);
+  $('sbToggle').setAttribute('aria-label', open ? 'Close sidebar' : 'Open sidebar');
+  $('sbToggle').title = `${open ? 'Close' : 'Open'} sidebar (⌘B)`;
+  localStorage.setItem('genui.sidebar', open ? 'open' : 'closed');
+}
+setSidebar(localStorage.getItem('genui.sidebar') !== 'closed');
+let jumpOpenedSidebar = false; // ⌘K on a closed sidebar closes it again on Esc
+
+function shortcut(key) {
+  if (key === 'b') {
+    setSidebar(!sidebarOpen());
+    if (!sidebarOpen() && $('sidebar').contains(document.activeElement)) $('input').focus();
+  }
+  if (key === 'k') {
+    jumpOpenedSidebar = !sidebarOpen();
+    setSidebar(true);
+    $('jump').focus();
+    $('jump').select();
+  }
+}
+
+$('sbToggle').onclick = () => shortcut('b');
+$('newBtn').onclick = () => newSession(current()?.cwd);
+$('jump').oninput = () => { hl = ''; renderSessions(); };
+$('jump').onkeydown = e => {
+  const ids = [...$('list').querySelectorAll('.item')].map(r => r.dataset.id);
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    const i = ids.indexOf(hl);
+    hl = ids[Math.max(0, Math.min(ids.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))] ?? '';
+    renderSessions();
+    $('list').querySelector('.item.hl')?.scrollIntoView({ block: 'nearest' });
+  }
+  if (e.key === 'Enter' && (hl || ids[0])) openSession(hl || ids[0]);
+  if (e.key === 'Escape') {
+    e.stopPropagation();
+    $('jump').value = '';
+    hl = '';
+    renderSessions();
+    if (jumpOpenedSidebar) setSidebar(false);
+    $('input').focus();
+  }
+};
+
+$('otherBtn').onclick = () => {
+  $('otherBtn').hidden = true;
+  $('folderForm').hidden = false;
+  $('folderPath').focus();
+};
+const closeFolder = () => {
+  $('folderForm').hidden = true;
+  $('otherBtn').hidden = false;
+  $('folderPath').value = '';
+  $('folderErr').textContent = '';
+};
+$('folderPath').onkeydown = e => { if (e.key === 'Escape') { e.stopPropagation(); closeFolder(); } };
+$('folderPath').oninput = () => { $('folderErr').textContent = ''; };
+$('folderForm').onsubmit = async e => {
+  e.preventDefault();
+  const cwd = $('folderPath').value.trim();
+  if (!cwd) return;
+  const error = await newSession(cwd);
+  if (error) return ($('folderErr').textContent = error);
+  setNewMenu(false);
+};
+
+function setNewMenu(open) {
+  $('newMenu').hidden = !open;
+  $('newMore').setAttribute('aria-expanded', open);
+  if (open) $('newHereName').textContent = folderName(current()?.cwd ?? '');
+  else closeFolder();
+}
+$('newMore').onclick = () => setNewMenu($('newMenu').hidden);
+$('newHere').onclick = () => { setNewMenu(false); newSession(current()?.cwd); };
+addEventListener('click', e => { if (!$('newRow').contains(e.target)) setNewMenu(false); });
+
+// Rename in place: double-click the title, Enter saves, Esc cancels.
+$('sTitle').ondblclick = () => {
+  const x = current();
+  if (!x || $('sTitle').querySelector('input')) return;
+  const input = el('input', 'rename');
+  input.value = x.title;
+  input.setAttribute('aria-label', 'Session title');
+  let done = false;
+  const finish = save => {
+    if (done) return;
+    done = true;
+    const title = input.value.trim();
+    input.remove();
+    if (save && title && title !== x.title) {
+      x.title = title;
+      api({ t: 'renameSession', id: x.id, title });
+    }
+    renderHeader();
+  };
+  input.onkeydown = e => {
+    if (e.key === 'Enter') finish(true);
+    if (e.key === 'Escape') { e.stopPropagation(); finish(false); }
+  };
+  input.onblur = () => finish(true);
+  $('sTitle').replaceChildren(input);
+  input.focus();
+  input.select();
+};
+
+// ---------- settings ----------
+function renderSettings({ value, options }) {
+  for (const [key, choices] of Object.entries(options)) {
+    const select = $(`set-${key}`);
+    if (select.options.length !== choices.length) {
+      select.replaceChildren(...choices.map(([v, label]) => Object.assign(el('option', '', label), { value: v })));
+    }
+    select.value = value[key];
+  }
+  $('permWarn').hidden = value.permissionMode !== 'bypassPermissions';
+}
+
+for (const key of ['permissionMode', 'plannerModel', 'plannerEffort', 'renderModel', 'renderEffort']) {
+  $(`set-${key}`).onchange = async e => {
+    const r = await api({ t: 'settings', value: { [key]: e.target.value } });
+    const body = r.ok ? null : await r.json().catch(() => ({ error: `Request failed (${r.status})` }));
+    $('saved').textContent = body ? body.error : 'Saved';
+    setTimeout(() => ($('saved').textContent = ''), 1500);
+  };
+}
+
+// ---------- keybinds modal ----------
+const MOD = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
+const KEYBINDS = [
+  ['General', [[[MOD, 'B'], 'Show or hide the sidebar'], [[MOD, 'K'], 'Jump to a session'], [['Esc'], 'Close a menu, comment box or comment mode']]],
+  ['Jump list', [[['↑', '↓'], 'Move through sessions'], [['Enter'], 'Open the highlighted session'], [['Esc'], 'Back to the prompt']]],
+  ['Prompt', [[['Enter'], 'Send'], [['Shift', 'Enter'], 'New line']]],
+  ['Canvas', [[['C'], 'Toggle comment mode (outside text fields)'], [['Double-click'], 'Rename the session (on its title)']]],
+];
+$('keysBody').replaceChildren(...KEYBINDS.map(([group, rows]) => {
+  const section = el('section');
+  const dl = el('dl');
+  for (const [keys, action] of rows) {
+    const dt = el('dt');
+    dt.append(...keys.map(k => el('kbd', '', k)));
+    dl.append(dt, el('dd', '', action));
+  }
+  section.append(el('h3', '', group), dl);
+  return section;
+}));
+$('keysBtn').onclick = () => { setSettingsOpen(false); $('keys').showModal(); };
+$('keysClose').onclick = () => $('keys').close();
+$('keys').onclick = e => { if (e.target === $('keys')) $('keys').close(); }; // backdrop click
+
+const setSettingsOpen = open => {
+  $('settingsPop').hidden = !open;
+  $('settings').classList.toggle('open', open);
+  $('gear').setAttribute('aria-expanded', open);
+};
+$('gear').onclick = () => setSettingsOpen($('settingsPop').hidden);
+addEventListener('click', e => { if (!$('settings').contains(e.target)) setSettingsOpen(false); });
+
+// ---------- chat bar: what the planner is working on + this session's input history ----------
+let inputs = []; // oldest first: [{ kind, text, panel?, on?, at }]
+let recall = -1; // ↑/↓ position among typed prompts, 0 = newest; -1 = not browsing
+const KIND = { prompt: 'You', click: 'Clicked', comment: 'Comment', answer: 'Answered' };
+const inputText = x => `${x.kind === 'comment' && x.on ? `on “${x.on}”: ` : ''}${x.text}`;
+
+function renderCtx() {
+  const x = inputs.at(-1);
+  $('ctx').classList.toggle('on', activity.busy && Boolean(x));
+  if (!x) return;
+  $('ctxKind').textContent = KIND[x.kind] ?? x.kind;
+  $('ctxText').textContent = inputText(x);
+  $('ctxWhere').textContent = x.panel ? `· ${x.panel}` : '';
+}
+
+function renderHist() {
+  if (!inputs.length) return $('hist').replaceChildren(el('div', 'none', 'Nothing sent in this session yet.'));
+  const list = el('ol');
+  for (const x of inputs) {
+    const b = el('button');
+    b.type = 'button';
+    b.append(el('span', 'k', `${KIND[x.kind] ?? x.kind}${x.panel ? ` · ${x.panel}` : ''}`), el('span', 'ago', ago(x.at)), el('span', 'x', inputText(x)));
+    b.onclick = () => { $('input').value = x.text; setHistOpen(false); $('input').focus(); };
+    const li = el('li');
+    li.append(b);
+    list.append(li);
+  }
+  $('hist').replaceChildren(el('div', 'kicker', 'History · this session'), list);
+  $('hist').scrollTop = $('hist').scrollHeight; // newest sits next to the input
+}
+
+function setHistOpen(open) {
+  $('hist').hidden = !open;
+  $('histWrap').classList.toggle('open', open);
+  $('histBtn').setAttribute('aria-expanded', open);
+  if (open) renderHist();
+}
+
+function renderInputs() {
+  renderCtx();
+  if (!$('hist').hidden) renderHist();
+}
+
+$('histBtn').onclick = () => setHistOpen($('hist').hidden);
+addEventListener('click', e => { if (!$('histWrap').contains(e.target)) setHistOpen(false); });
+
+const activity = { busy: false, text: '', steps: [], since: 0, timer: null };
 function renderActivity() {
+  const { busy } = activity;
+  $('form').classList.toggle('busy', busy);
+  $('send').setAttribute('aria-label', busy ? 'Stop' : 'Send');
   $('status').textContent = activity.text || 'Thinking…';
-  $('activity').classList.toggle('on', activity.busy || Boolean(activity.text));
+  $('steps').replaceChildren(...activity.steps.slice(0, -1).map(t => el('li', '', t)));
+  if (busy && !activity.timer) {
+    activity.since = Date.now();
+    activity.timer = setInterval(renderActivity, 1000);
+  }
+  if (!busy && activity.timer) activity.timer = clearInterval(activity.timer);
+  renderCtx();
+  $('elapsed').textContent = busy ? ` · ${Math.round((Date.now() - activity.since) / 1000)}s` : '';
+  // Errors arrive after the turn ends, when hover no longer shows the tip: flash it instead.
+  // Only errors: busy clears before the last step does, so any text here would flash every turn end.
+  if (!busy && activity.text.startsWith('Error')) {
+    $('tip').classList.add('flash');
+    setTimeout(() => $('tip').classList.remove('flash'), 4000);
+  }
 }
 
 function askCard({ askId, question, options }) {
@@ -161,26 +765,115 @@ function approveCard({ reqId, tool, input }) {
   $('cards').append(card);
 }
 
+// ---------- comment mode ----------
+let commenting = false;
+let pop = null; // the open comment box
+const tell = p => p.ready && p.frame.contentWindow.postMessage({ commenting }, '*'); // also clears the frame's highlight
+
+function closeComment(keep) {
+  pop?.remove();
+  pop = null;
+  for (const p of panels.values()) if (p !== keep) tell(p);
+}
+
+function setCommenting(on) {
+  commenting = on;
+  $('commentBtn').setAttribute('aria-pressed', on);
+  closeComment();
+}
+
+function openComment(id, p, { target, rect }) {
+  closeComment(p); // p just highlighted its new pick: don't clear it
+  const f = p.frame.getBoundingClientRect();
+  pop = el('form', 'card comment');
+  pop.style.top = `${scrollY + f.top + rect.bottom + 8}px`;
+  pop.style.left = `${scrollX + Math.max(8, Math.min(f.left + rect.left, innerWidth - 336))}px`;
+  const box = el('textarea');
+  box.placeholder = 'Comment on this…';
+  box.setAttribute('aria-label', 'Comment');
+  const row = el('div', 'row');
+  const cancel = el('button', '', 'Cancel');
+  cancel.type = 'button';
+  cancel.onclick = () => closeComment();
+  row.append(el('button', 'primary', 'Send'), cancel);
+  pop.append(el('div', 'kicker', target.text ? `“${target.text}”` : `<${target.element}>`), box, row);
+  pop.onsubmit = e => {
+    e.preventDefault();
+    const text = box.value.trim();
+    if (!text) return;
+    api({ t: 'comment', panel: id, target, text });
+    closeComment();
+  };
+  box.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); pop.requestSubmit(); } };
+  document.body.append(pop);
+  box.focus();
+}
+
+$('commentBtn').onclick = () => setCommenting(!commenting);
+$('folderBtn').onclick = () => api({ t: 'openFolder' });
+// Panels forward these keys too, since focus is often inside an iframe after a click.
+function onKey(key, inField) {
+  if (key === 'Escape') {
+    if (!$('newMenu').hidden) setNewMenu(false);
+    else if (!$('hist').hidden) setHistOpen(false);
+    else if (!$('settingsPop').hidden) setSettingsOpen(false);
+    else if (pop) closeComment();
+    else if (commenting) setCommenting(false);
+  }
+  if (key === 'c' && !inField) setCommenting(!commenting);
+}
+addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && ['b', 'k'].includes(e.key)) {
+    e.preventDefault();
+    return shortcut(e.key);
+  }
+  if (!e.metaKey && !e.ctrlKey && !e.altKey) onKey(e.key, Boolean(e.target.closest?.('input, textarea, select, [contenteditable]')));
+});
+
 addEventListener('message', e => {
   if (!e.data?.genui) return;
   const [id, p] = [...panels].find(([, p]) => p.frame.contentWindow === e.source) ?? [];
   if (!p) return;
-  if (e.data.type === 'ready') { p.ready = true; flush(p); }
+  if (e.data.type === 'ready') { p.ready = true; tell(p); flush(p); }
+  if (e.data.type === 'pick' && commenting) openComment(id, p, e.data);
+  if (e.data.type === 'key') e.data.mod ? shortcut(e.data.key) : onKey(e.data.key, e.data.inField);
   if (e.data.type === 'height') p.frame.style.height = `${Math.max(60, e.data.h)}px`;
   if (e.data.type === 'error') { p.el.classList.add('has-error'); p.el.querySelector('.err').title = e.data.message; }
-  if (e.data.type === 'event') api({ t: 'event', panel: id, payload: e.data.payload });
+  if (e.data.type === 'event') api({ t: 'event', panel: id, payload: e.data.payload, label: e.data.label });
 });
 
-new EventSource('/events').onmessage = e => handle(JSON.parse(e.data));
+connect();
+const startJump = new URLSearchParams(location.hash.slice(1)).get('jump'); // `genui --resume` opens /#jump=<folder>
+if (startJump) {
+  history.replaceState(null, '', location.pathname);
+  jumpTo(startJump);
+}
 
 $('form').onsubmit = e => {
   e.preventDefault();
   const text = $('input').value.trim();
   if (!text) return;
   $('input').value = '';
+  recall = -1;
   api({ t: 'prompt', text });
 };
-$('input').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('form').requestSubmit(); } };
+$('send').onclick = e => {
+  if (!activity.busy) return; // idle: normal submit
+  e.preventDefault();
+  api({ t: 'stop' });
+};
+$('input').oninput = () => { recall = -1; };
+$('input').onkeydown = e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); return $('form').requestSubmit(); }
+  // Shell-style recall of typed prompts: ↑ from an empty box, then ↑/↓ while browsing.
+  const up = e.key === 'ArrowUp' && (recall >= 0 || !$('input').value);
+  const down = e.key === 'ArrowDown' && recall >= 0;
+  const typed = inputs.filter(x => x.kind === 'prompt');
+  if ((!up && !down) || !typed.length) return;
+  e.preventDefault();
+  recall = up ? Math.min(recall + 1, typed.length - 1) : recall - 1;
+  $('input').value = recall < 0 ? '' : typed.at(-1 - recall).text;
+};
 </script>
 </body>
 </html>

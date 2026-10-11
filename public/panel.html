@@ -8,6 +8,9 @@
   html, body { margin: 0; background: transparent; }
   body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
   #root { padding: 14px; }
+  body.commenting #root * { cursor: crosshair; }
+  [data-genui-hover], [data-genui-picked] { outline: 2px solid #4f46e5 !important; outline-offset: 2px; }
+  [data-genui-hover] { outline-style: dashed !important; }
 </style>
 </head>
 <body>
@@ -16,11 +19,62 @@
   // Generated code runs in an opaque-origin sandbox; this bridge is its only way out.
   const root = document.getElementById('root');
   const post = msg => parent.postMessage({ genui: true, ...msg }, '*');
-  window.agent = { send: payload => post({ type: 'event', payload }) };
+  // agent.send runs inside a click handler: label the event with what the user clicked, for the chat bar.
+  let clicked = null;
+  addEventListener('click', e => {
+    clicked = e.target.closest?.('button, a, [role=button]') ?? e.target;
+    setTimeout(() => { clicked = null; }); // a send from a later timer is not this click
+  }, true);
+  window.agent = { send: payload => post({ type: 'event', payload, label: clicked ? textOf(clicked) : '' }) };
   addEventListener('error', e => post({ type: 'error', message: String(e.message) }));
+
+  // Comment mode: the parent toggles it; a click picks an element instead of activating it.
+  let commenting = false;
+  const unmark = attr => document.querySelector(`[${attr}]`)?.removeAttribute(attr);
+  const clip = s => { s = (s ?? '').replace(/\s+/g, ' ').trim(); return s.length > 300 ? `${s.slice(0, 300)}…` : s; };
+  const textOf = el => clip(el.innerText ?? el.textContent); // SVG elements have no innerText
+  // The planner never sees the generated HTML, so describe the element by what the user sees.
+  function describe(el) {
+    const text = textOf(el) || el.getAttribute('aria-label') || el.getAttribute('title') || '';
+    const near = el.parentElement !== root ? textOf(el.parentElement) : '';
+    return { element: el.tagName.toLowerCase(), text, ...(near && near !== text && { near }) };
+  }
+  addEventListener('mouseover', e => {
+    if (!commenting) return;
+    unmark('data-genui-hover');
+    e.target.closest('#root *')?.setAttribute('data-genui-hover', '');
+  });
+  addEventListener('click', e => {
+    if (!commenting) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const el = e.target.closest('#root *');
+    if (!el) return;
+    unmark('data-genui-hover');
+    unmark('data-genui-picked');
+    el.setAttribute('data-genui-picked', '');
+    const r = el.getBoundingClientRect();
+    post({ type: 'pick', target: describe(el), rect: { left: r.left, bottom: r.bottom } });
+  }, true);
+
+  addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && !e.altKey && ['b', 'k'].includes(e.key)) { // sidebar shortcuts work from inside a panel too
+      e.preventDefault();
+      return post({ type: 'key', key: e.key, mod: true });
+    }
+    if (e.metaKey || e.ctrlKey || e.altKey || !['c', 'Escape'].includes(e.key)) return;
+    post({ type: 'key', key: e.key, inField: Boolean(e.target.closest?.('input, textarea, select, [contenteditable]')) });
+  });
 
   addEventListener('message', e => {
     if (e.source !== parent) return;
+    if ('commenting' in e.data) {
+      commenting = e.data.commenting;
+      document.body.classList.toggle('commenting', commenting);
+      unmark('data-genui-hover');
+      unmark('data-genui-picked');
+      return;
+    }
     root.innerHTML = e.data.html.replace(/^\s*```(?:html)?\s*/i, '');
     if (!e.data.final) return;
     // innerHTML never executes scripts; re-create them once the fragment is complete.

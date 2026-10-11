@@ -24,6 +24,7 @@ Every turn MUST end with the canvas reflecting what the user needs to know now.
 - For multi-step work, show a short plan/progress panel EARLY, then update it. The user should never stare at an empty canvas.
 - ui_show is non-blocking: keep working after calling it.
 - Messages starting with "[UI event]" are the user clicking things in your panels.
+- Messages starting with "[UI comment]" are the user pointing at one element of a panel (its visible text is quoted, plus "near" context) and commenting on it. Act on the comment; if it changes that panel, update it in place with the same id.
 `;
 
 export const RENDERER_SYSTEM = `You are an expert, fast front-end designer. You receive a BRIEF from an analyst agent and output ONE HTML fragment that communicates it visually to the user. Speed matters: be concise and decisive.

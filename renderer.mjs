@@ -1,7 +1,6 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { RENDERER_SYSTEM } from './prompts.mjs';
 
-const MODEL = process.env.GENUI_RENDER_MODEL || 'claude-haiku-5-5';
 const RECYCLE_AFTER = 6; // bounds context growth; prior panels in context keep styling consistent
 
 // Async queue so one long-lived CLI process serves many renders (no spawn per render).
@@ -19,20 +18,26 @@ function inbox() {
   };
 }
 
+// 'default' leaves effort to the model.
+const effortOption = effort => (effort && effort !== 'default' ? { effort } : {});
+
 class Worker {
-  constructor() {
+  constructor(model, effort) {
+    this.model = model;
+    this.effort = effort;
     this.uses = 0;
     this.input = inbox();
     this.q = query({
       prompt: this.input,
       options: {
-        model: MODEL,
+        model,
         systemPrompt: RENDERER_SYSTEM,
         tools: [],
         mcpServers: {},
         strictMcpConfig: true,
         settingSources: [],
         thinking: { type: 'disabled' },
+        ...effortOption(effort),
         includePartialMessages: true,
         persistSession: false,
         env: { ...process.env, ENABLE_CLAUDEAI_MCP_SERVERS: 'false' },
@@ -68,9 +73,22 @@ class Worker {
 }
 
 export class RendererPool {
-  constructor(size = Number(process.env.GENUI_RENDER_WORKERS || 3)) {
-    this.idle = Array.from({ length: size }, () => new Worker());
+  constructor(model = 'claude-haiku-5-5', effort = 'default', size = Number(process.env.GENUI_RENDER_WORKERS || 3)) {
+    Object.assign(this, { model, effort });
+    this.idle = Array.from({ length: size }, () => new Worker(model, effort));
     this.waiting = [];
+  }
+
+  close() {
+    this.closed = true; // busy workers close on release instead of being replaced
+    for (const w of this.idle) w.close();
+  }
+
+  // Idle workers switch now (and warm up again); busy ones switch when released.
+  configure(model, effort) {
+    if (model === this.model && effort === this.effort) return;
+    Object.assign(this, { model, effort });
+    this.idle = this.idle.map(w => { w.close(); return new Worker(model, effort); });
   }
 
   async acquire() {
@@ -78,9 +96,10 @@ export class RendererPool {
   }
 
   release(worker, healthy) {
-    if (!healthy || worker.uses >= RECYCLE_AFTER) {
+    if (this.closed) return worker.close();
+    if (!healthy || worker.uses >= RECYCLE_AFTER || worker.model !== this.model || worker.effort !== this.effort) {
       worker.close();
-      worker = new Worker();
+      worker = new Worker(this.model, this.effort);
     }
     const next = this.waiting.shift();
     next ? next(worker) : this.idle.push(worker);

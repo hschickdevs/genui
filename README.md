@@ -1,25 +1,44 @@
 ![genui](docs/logo-lockup.svg)
 
-An agent harness on the [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview) where **the only output is generated UI**. There is no markdown and no chat transcript. A strong model (Opus) does the thinking and tool use, then hands short briefs to a pool of fast models (Haiku) that stream them into interactive panels.
+> A properly prompted modern LLM (Gemini 3) can robustly generate a full custom interactive web page for almost any prompt. Humans prefer it over markdown 82.8% of the time. Main costs: 1–2 minute generation and occasional JS/CSS/HTML errors.
+>
+> — summarized from Leviathan et al., [*Generative UI: LLMs are Effective UI Generators*](https://arxiv.org/pdf/2604.09577), Google Research ([blog](https://research.google/blog/generative-ui-a-rich-custom-visual-interactive-user-experience-for-any-prompt/), [examples](https://generativeui.github.io))
 
-![Answer to "How does this repo work?" rendered as panels](docs/screenshot.png)
+**genui** is an agent harness on the [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview) where **the only output is generated UI**. There is no markdown and no chat transcript. A strong model does the thinking and tool use, then hands short briefs to a pool of fast models that stream them into interactive panels, in seconds rather than minutes.
+
+![A session answering "How does this repo work?" as panels](docs/screenshot.png)
 
 ![Demo, real time](docs/demo.gif)
 
-*Real-time capture, not sped up: "How does the renderer pool keep panels fast?" Opus reads the code, then Haiku streams the answer into a panel. Full video: [docs/demo.webm](docs/demo.webm).*
+*Real-time capture, not sped up. Full video: [docs/demo.webm](docs/demo.webm).*
 
-## Why
+## Contents
 
-The thesis comes from Google Research's [*Generative UI: LLMs are Effective UI Generators*](https://arxiv.org/pdf/2604.09577) (Leviathan et al.; [blog](https://research.google/blog/generative-ui-a-rich-custom-visual-interactive-user-experience-for-any-prompt/), [examples](https://generativeui.github.io)):
+- [Why genui](#why-genui)
+- [How it works](#how-it-works)
+- [Speed](#speed)
+- [Install](#install)
+- [CLI](#cli)
+- [Sessions](#sessions)
+- [Settings](#settings)
+- [Auth note](#auth-note)
+- [License](#license)
 
-| Finding | Number |
+## Why genui
+
+The paper shows people strongly prefer generated interfaces, but measured that *"when ignoring generation speed."* Its implementation has one model write each full page. genui keeps the paper's prompting principles (Appendix A.5) and post-processing ideas (A.6), and changes the architecture to remove both costs:
+
+| Paper's limitation | genui's answer |
 |---|---|
-| Generative UI preferred over standard markdown output | **82.8%** of pairwise comparisons (Elo 1710.7 vs 1459.6) |
-| At least comparable to pages built by human experts | **44%** of cases |
-| Capability is emergent | Output errors: 60% on Gemini 2.0 Flash-Lite → 0% on newer models |
-| **Main limitation** | **Slow: "a minute or two" per page.** Streaming roughly halves perceived wait. |
+| **1–2 minutes per page** (streaming only halves the perceived wait) | A strong planner writes a short brief; a pre-warmed fast model streams the HTML. Panels show first content in **~0.5–3 s**, and only the panel that changed is redrawn. |
+| **Occasional JS/CSS/HTML errors** | Each panel is its own sandboxed iframe, so an error breaks one panel, not the page. Errors show as a badge, and a failed render falls back to the brief's text. |
 
-These results were measured *"when ignoring generation speed."* This project takes the paper's prompting principles (A.5) and post-processing ideas (A.6) and concentrates on the part it left open: **speed**, inside an agent that does real work.
+**Why a smaller renderer doesn't cost quality.** Anthropic's own research finds that a strong model directing smaller ones holds up, and can even beat a single strong model:
+
+- A [multi-agent system](https://www.anthropic.com/engineering/multi-agent-research-system) with Opus 4 leading Sonnet 4 subagents outperformed a single Opus 4 by **90.2%** on Anthropic's internal research eval.
+- In the [advisor strategy](https://claude.com/blog/the-advisor-strategy), Haiku guided by Opus scored **41.2%** on BrowseComp, more than double Haiku alone (19.7%). Sonnet guided by Opus gained 2.7 points on SWE-bench Multilingual at 11.9% lower cost.
+
+genui applies the same split: Opus (or Fable) does the reasoning, and Haiku only turns a finished brief into layout.
 
 Nearby work, none of which combines a UI-only agent with a planner/renderer split: Gemini dynamic view, [Claude inline visualizations](https://thenewstack.io/anthropics-claude-interactive-visualizations/), [Thesys C1/OpenUI](https://www.producthunt.com/products/thesys/launches/openui-2), [Vercel json-render](https://github.com/vercel-labs/json-render), [Google A2UI](https://a2ui.org/introduction/agent-ui-ecosystem/), and MCP Apps.
 
@@ -44,6 +63,8 @@ flowchart LR
 | **Renderer** (`claude-haiku-5-5`) | Decides *how* it looks: an HTML + Tailwind fragment, styled consistently, using only facts from the brief. Prompt adapted from paper A.5. |
 | **Stop hook** | A turn can't end without updating the canvas. As a last resort, the final text is rendered as a panel. |
 | **Panels** | Sandboxed iframes (`allow-scripts`, no same-origin). `agent.send(payload)` is their only way back to the planner. |
+| **Comments** | Press **C** (or the speech-bubble icon in the header), click any element in a panel and type. The planner gets the element's visible text with your comment, so you don't have to describe what you mean. Esc exits. |
+| **Chat bar** | While the planner works, a line above the input shows what it's working on: your last prompt, click, comment or answer. The clock button lists everything sent in this session; click an entry to reuse it, or press ↑ in an empty input to recall earlier prompts. |
 | **Approvals** | Drawn by the harness, never by a model, so the agent requesting an action can't design its own consent screen. |
 
 ## Speed
@@ -59,41 +80,81 @@ flowchart LR
 
 Measured on a laptop: each panel header shows its own numbers. First paint has been **0.5–3.0s** and complete panels **4.8–13.5s**. End-to-end time is dominated by the planner reading code and running tools, not by rendering.
 
-## Setup
+## Install
 
-Requirements: Node 22+, and the [Claude Code CLI](https://code.claude.com/docs/en/setup) logged in (`claude` → `/login`) *or* `ANTHROPIC_API_KEY` set.
+Requirements: macOS or Linux, Node 22+, and the [Claude Code CLI](https://code.claude.com/docs/en/setup) logged in (`claude auth login`) *or* `ANTHROPIC_API_KEY` set.
 
 ```bash
-git clone https://github.com/hschickdevs/genui && cd genui
-npm install
-GENUI_CWD=/path/to/a/project npm start
-# open http://127.0.0.1:4317
+npm i -g github:hschickdevs/genui
+cd ~/some/project && genui
 ```
+
+To hack on it, clone instead and link the command to your checkout: `git clone https://github.com/hschickdevs/genui && cd genui && npm install && npm link`. Or skip the command and run `npm start`.
 
 | Env var | Default | Purpose |
 |---|---|---|
-| `GENUI_CWD` | current dir | Project the planner works in |
-| `GENUI_PLANNER_MODEL` | `claude-opus-5-5` | Thinking model |
-| `GENUI_RENDER_MODEL` | `claude-haiku-5-5` | Rendering model |
+| `GENUI_CWD` | current dir | Folder for the first session, when none exist yet |
+| `GENUI_PLANNER_MODEL` | `claude-opus-5-5` | First-run default; then the ⚙ menu |
+| `GENUI_RENDER_MODEL` | `claude-haiku-5-5` | First-run default; then the ⚙ menu |
 | `GENUI_RENDER_WORKERS` | `3` | Warm renderer pool size |
+| `GENUI_DIR` | `~/.genui` | Where sessions, settings and the server log are stored |
 | `PORT` | `4317` | Local port (binds to 127.0.0.1 only) |
 
+## CLI
+
+`genui` starts a background server on first use, then opens the folder in your browser. Run it again in any folder and it reuses that server. An open genui tab switches to the folder instead of a new tab opening.
+
+| Command | Does |
+|---|---|
+| `genui [dir]` | New session in `dir` (default: current folder); reuses an untouched one |
+| `genui -c` | Continue the most recent session in this folder |
+| `genui -r` | Pick a session for this folder from the sidebar |
+| `genui --no-open` | Print the URL instead of opening a browser |
+| `genui stop` | Stop the server (refuses while sessions work; add `--force`) |
+
+- The server keeps running after you close the terminal. Its log is `~/.genui/server.log`.
+- A bare `genui` in `~` or `/` is refused. Name the folder explicitly if you mean it.
+- Update: `genui stop && npm i -g github:hschickdevs/genui`. Uninstall: `genui stop && npm rm -g genui` (and `rm -rf ~/.genui` to drop sessions and settings).
+
+## Sessions
+
+A **session** is one Claude Code session (same id, same title) plus its canvas. You can run several per folder.
+
+| Action | How |
+|---|---|
+| Show or hide the sidebar | ⌘B / Ctrl+B |
+| Jump to a session | ⌘K / Ctrl+K, type, ↑↓, Enter |
+| New session in the current folder | **＋ New session** (or **+** on a folder heading) |
+| New session elsewhere | **New session in another folder…** with an absolute path, or `genui` in that folder |
+| Rename | Double-click the title in the header |
+| Archive | **×** on an idle session in the sidebar |
+
+- Claude Code names sessions automatically, and they also appear in `claude --resume` in that folder.
+- Sessions and their canvases are saved to `~/.genui/sessions/`. An idle session frees its process after 15 minutes and resumes, with its memory, on the next prompt.
+- The sidebar dot pulses indigo while a session works and turns amber when it needs your approval or answer. Those sessions are listed under **Needs you**.
+
+![Trust-model panel with the sidebar collapsed](docs/screenshot-2.png)
+
+## Settings
+
+The ⚙ menu (top right) sets permissions, the planning and rendering models and their effort, and lists the keybinds. Changes apply immediately, also to running sessions, and are saved to `~/.genui/settings.json`.
+
+![Settings menu](docs/settings.png)
+
+| Permissions | Behaviour |
+|---|---|
+| **Allow all** (default) | Runs any command or file edit without asking |
+| Auto | A classifier approves or denies each action |
+| Auto-accept edits | Edits run; commands ask |
+| Ask before edits and commands | Every edit or non-read-only command asks |
+
+In the asking modes, approvals appear as a card drawn by the harness, never by the model:
+
 ![Harness-drawn approval card](docs/approval.png)
-
-Read-only tools (Read, Grep, Glob, WebSearch, WebFetch) run without asking. Bash, Edit, Write and everything else need you to click Allow on a card like the one above.
-
-![Architecture panel](docs/screenshot-2.png)
 
 ## Auth note
 
 genui never reads, stores or forwards credentials. The Agent SDK runs the unmodified `claude` binary, which uses whatever login you already have. Anthropic's [policy](https://code.claude.com/docs/en/legal-and-compliance) allows a user to sign in to the stock Claude Code binary with their own subscription. It also says anyone **building a product for other people** should use API keys. Treat this repo as a personal tool, and use `ANTHROPIC_API_KEY` if you build on it for others.
-
-## Limitations
-
-- A single session in memory. Restarting the server clears the canvas.
-- The renderer is only *told* not to invent data. Nothing checks it yet.
-- Panels load Tailwind's Play CDN, so they need network access.
-- The only test is `stripFences` (`npm test`).
 
 ## License
 

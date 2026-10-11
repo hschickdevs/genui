@@ -13,5 +13,25 @@
     "zod": "^4.6.5"
   },
   "type": "module",
-  "private": false
+  "private": false,
+  "bin": {
+    "genui": "bin/genui.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "os": [
+    "darwin",
+    "linux"
+  ],
+  "files": [
+    "bin",
+    "public",
+    "*.mjs",
+    "LICENSE.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hschickdevs/genui.git"
+  }
 }
