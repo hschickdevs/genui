@@ -187,7 +187,10 @@
   .mcp.failed .dot { background: #e11d48; }
   .mcp.pending .dot { animation: pulse 1s infinite; }
   .pmenu .note { padding: 4px 8px 6px; color: var(--muted); font-size: 12px; }
-  .drop { position: fixed; inset: 12px; z-index: 50; display: grid; place-items: center; border: 2px dashed var(--accent); border-radius: 16px; background: rgb(79 70 229 / .06); color: var(--accent); font-weight: 600; backdrop-filter: blur(1px); }
+  /* Dragging files: an invisible full-screen catcher (panels' iframes would swallow the drop); the cue sits on the prompt box. */
+  .drop { position: fixed; inset: 0; z-index: 50; }
+  body:has(#drop:not([hidden])) .prompt { outline: 2px dashed var(--accent); outline-offset: 3px; }
+  body:has(#drop:not([hidden])) .prompt::after { content: "Drop to attach file"; position: absolute; inset: 0; display: grid; place-items: center; border-radius: 14px; background: rgb(238 242 255 / .94); color: var(--accent); font-weight: 600; }
   .hist-wrap { position: relative; display: flex; align-items: center; }
   .hist-wrap .tt { top: auto; bottom: calc(100% + 10px); }
   .hist-wrap:has(.tool:hover, .tool:focus-visible):not(.open) .tt { opacity: 1; }
@@ -328,7 +331,7 @@
   </div>
 </footer>
 </div>
-<div class="drop" id="drop" hidden>Drop to attach</div>
+<div class="drop" id="drop" hidden></div>
 <dialog class="confirm" id="confirmDlg" aria-labelledby="confirmTitle" aria-describedby="confirmText">
   <form method="dialog" id="confirmForm">
     <h2 id="confirmTitle"></h2>
